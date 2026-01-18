@@ -1,0 +1,113 @@
+plugins {
+    id "com.android.application"
+    id 'com.google.gms.google-services'
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// 시크릿 파일 경로 탐색 (우선순위 순)
+def findSecretsDir() {
+    def candidates = [
+        System.getenv('SECRETS_PATH'),                              // 1. 환경변수
+        rootProject.file('../secrets').absolutePath,                // 2. 프로젝트 루트/secrets (일반 클론)
+        rootProject.file('../../../secrets').absolutePath,          // 3. Conductor 워크스페이스
+    ]
+    for (path in candidates) {
+        if (path != null && new File(path).exists()) {
+            println "📁 Using secrets from: ${path}"
+            return new File(path)
+        }
+    }
+    // fallback: 기존 위치 (android/)
+    return rootProject.file('.')
+}
+
+def secretsDir = findSecretsDir()
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = new File(secretsDir, 'key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    println "🔑 Loaded key.properties from: ${keystorePropertiesFile.absolutePath}"
+} else {
+    println "⚠️  key.properties not found. Release build will fail."
+    println "   Create secrets/key.properties in project root."
+}
+
+android {
+    namespace = "com.bottlenote.official.app"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    defaultConfig {
+        applicationId = "com.bottlenote.official.app"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+        
+        resValue "string", "KAKAO_NATIVE_APP_KEY", "\"kakao${System.getenv('KAKAO_NATIVE_APP_KEY')}\""
+    }
+
+    dependencies {
+    // For AGP 7.4+
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
+    // For AGP 7.3
+    // coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.3'
+    // For AGP 4.0 to 7.2
+    // coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.9'
+    }
+
+
+/* 기존 빌드 타입 설정
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig signingConfigs.debug
+        }
+    }
+*/
+    // 변경된 빌드 타입 설정
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            // storeFile 경로를 secrets 폴더 기준으로 해석
+            def storeFilePath = keystoreProperties['storeFile']
+            if (storeFilePath) {
+                def storeFileObj = new File(storeFilePath)
+                // 절대경로가 아니면 secrets 폴더 기준으로 해석
+                storeFile = storeFileObj.isAbsolute() ? storeFileObj : new File(secretsDir, storeFilePath)
+            }
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    // Android 16KB 페이지 사이즈 지원
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+

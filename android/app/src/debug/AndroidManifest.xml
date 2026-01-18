@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.bottlenote.official.app">
+    <!-- 개발을 위해서는 인터넷 권한이 필요합니다. 구체적으로,
+         Flutter 도구는 실행 중인 애플리케이션과 통신하기 위해 이 정보가 필요합니다.
+         중단점 설정 허용, 핫 리로드 제공 등.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>

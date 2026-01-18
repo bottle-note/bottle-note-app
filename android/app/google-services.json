@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "521955856728",
+    "project_id": "official-bottlenote",
+    "storage_bucket": "official-bottlenote.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:521955856728:android:fd11527374003dd7a6552d",
+        "android_client_info": {
+          "package_name": "com.bottlenote.official.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBjT4DdOMqkJikXMigvDSiZsxIf0UNAuoI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
