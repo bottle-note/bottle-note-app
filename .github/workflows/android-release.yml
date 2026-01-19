@@ -195,23 +195,16 @@ jobs:
         run: |
           mkdir -p secrets
 
-          # .env에서 값 읽기
-          KEYSTORE_PASSWORD=$(grep '^KEYSTORE_PASSWORD=' .env | cut -d '=' -f2)
-          KEY_PASSWORD=$(grep '^KEY_PASSWORD=' .env | cut -d '=' -f2)
-          KEY_ALIAS=$(grep '^KEY_ALIAS=' .env | cut -d '=' -f2)
-          KEYSTORE_BASE64=$(grep '^KEYSTORE_BASE64=' .env | cut -d '=' -f2)
-
           # key.properties 생성
           cat > secrets/key.properties << EOF
-          storePassword=$KEYSTORE_PASSWORD
-          keyPassword=$KEY_PASSWORD
-          keyAlias=$KEY_ALIAS
+          storePassword=$(sed -n 's/^KEYSTORE_PASSWORD=//p' .env)
+          keyPassword=$(sed -n 's/^KEY_PASSWORD=//p' .env)
+          keyAlias=$(sed -n 's/^KEY_ALIAS=//p' .env)
           storeFile=upload-keystore.jks
           EOF
 
-          # keystore 파일 복원 (base64 디코딩)
-          echo "$KEYSTORE_BASE64" | base64 --decode > secrets/upload-keystore.jks
-
+          # keystore 파일 복원
+          sed -n 's/^KEYSTORE_BASE64=//p' .env | base64 --decode > secrets/upload-keystore.jks
           echo "✅ Android signing setup complete"
 
       - name: Build AAB
