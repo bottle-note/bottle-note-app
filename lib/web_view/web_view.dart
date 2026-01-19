@@ -232,11 +232,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
           ],
         );
 
-    // Android에서는 Flutter SafeArea로 처리
-    if (Platform.isAndroid) {
-      return SafeArea(child: content);
-    }
-    // iOS는 웹에서 CSS env(safe-area-inset-*) 로 처리
     return content;
   }
 
