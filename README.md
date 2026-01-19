@@ -7,7 +7,7 @@
 ## 빠른 시작
 
 ```bash
-# 워크스페이스 초기화 (의존성 설치 + 코드 생성)
+# 워크스페이스 초기화 ( 의존성 설치 + 코드 생성 )
 make setup
 
 # 앱 실행
@@ -20,45 +20,45 @@ make run-dev
 
 ### 초기 설정 & 클린업
 
-| 명령어 | 설명 |
-|--------|------|
-| `make setup` | 워크스페이스 초기화 (pub get + 코드 생성) |
-| `make setup-signing` | Android 서명 설정 (.env.prod → secrets/) |
-| `make fresh` | 전체 클린 빌드 |
-| `make clean-ios` | iOS 캐시 완전 정리 |
-| `make clean-ios-quick` | iOS Pod만 재설치 |
-| `make clean-android` | Android 캐시 정리 |
-| `make codegen` | build_runner 실행 |
-| `make codegen-watch` | build_runner watch 모드 |
+| 명령어                 | 설명                                      |
+| ---------------------- | ----------------------------------------- |
+| `make setup`           | 워크스페이스 초기화 (pub get + 코드 생성) |
+| `make setup-signing`   | Android 서명 설정 (.env.prod → secrets/)  |
+| `make fresh`           | 전체 클린 빌드                            |
+| `make clean-ios`       | iOS 캐시 완전 정리                        |
+| `make clean-ios-quick` | iOS Pod만 재설치                          |
+| `make clean-android`   | Android 캐시 정리                         |
+| `make codegen`         | build_runner 실행                         |
+| `make codegen-watch`   | build_runner watch 모드                   |
 
 ### 버전 관리
 
-| 명령어 | 설명 | 예시 |
-|--------|------|------|
-| `make version` | 현재 버전 확인 | - |
+| 명령어            | 설명           | 예시                |
+| ----------------- | -------------- | ------------------- |
+| `make version`    | 현재 버전 확인 | -                   |
 | `make bump-build` | 빌드 번호만 +1 | 1.0.5+23 → 1.0.5+24 |
-| `make bump-patch` | 패치 버전 +1 | 1.0.5 → 1.0.6 |
-| `make bump-minor` | 마이너 버전 +1 | 1.0.5 → 1.1.0 |
-| `make bump-major` | 메이저 버전 +1 | 1.0.5 → 2.0.0 |
+| `make bump-patch` | 패치 버전 +1   | 1.0.5 → 1.0.6       |
+| `make bump-minor` | 마이너 버전 +1 | 1.0.5 → 1.1.0       |
+| `make bump-major` | 메이저 버전 +1 | 1.0.5 → 2.0.0       |
 
 ### 앱 실행
 
-| 명령어 | 환경 | 설명 |
-|--------|------|------|
-| `make run` | 프로덕션 | 프로덕션 환경 실행 (FLAVOR=prod) |
-| `make run-dev` | 개발 | 개발 환경 실행 (FLAVOR=dev) |
-| `make run-local` | 로컬 | 로컬 웹서버 연결 (localhost:3000) |
-| `make run-prod` | 프로덕션 | 프로덕션 환경 실행 (별칭) |
+| 명령어           | 환경     | 설명                              |
+| ---------------- | -------- | --------------------------------- |
+| `make run`       | 프로덕션 | 프로덕션 환경 실행 (FLAVOR=prod)  |
+| `make run-dev`   | 개발     | 개발 환경 실행 (FLAVOR=dev)       |
+| `make run-local` | 로컬     | 로컬 웹서버 연결 (localhost:3000) |
+| `make run-prod`  | 프로덕션 | 프로덕션 환경 실행 (별칭)         |
 
 ### 빌드
 
-| 명령어 | 플랫폼 | 환경 |
-|--------|--------|------|
-| `make build-dev-android` | Android APK | 개발 |
-| `make build-prod-android` | Android APK | 프로덕션 |
+| 명령어                        | 플랫폼      | 환경     |
+| ----------------------------- | ----------- | -------- |
+| `make build-dev-android`      | Android APK | 개발     |
+| `make build-prod-android`     | Android APK | 프로덕션 |
 | `make build-prod-android-aab` | Android AAB | 프로덕션 |
-| `make build-dev-ios` | iOS | 개발 |
-| `make build-prod-ios` | iOS | 프로덕션 |
+| `make build-dev-ios`          | iOS         | 개발     |
+| `make build-prod-ios`         | iOS         | 프로덕션 |
 
 ## 릴리즈 워크플로우
 
@@ -66,14 +66,15 @@ make run-dev
 
 PR을 `main` 브랜치에 머지할 때 라벨을 붙이면 자동으로 버전 bump + AAB 빌드가 실행됩니다.
 
-| 라벨 | 버전 변경 | 예시 |
-|------|----------|------|
+| 라벨            | 버전 변경      | 예시                |
+| --------------- | -------------- | ------------------- |
 | `release:build` | 빌드 번호만 +1 | 1.0.6+30 → 1.0.6+31 |
-| `release:patch` | 패치 버전 +1 | 1.0.6 → 1.0.7 |
-| `release:minor` | 마이너 버전 +1 | 1.0.6 → 1.1.0 |
-| `release:major` | 메이저 버전 +1 | 1.0.6 → 2.0.0 |
+| `release:patch` | 패치 버전 +1   | 1.0.6 → 1.0.7       |
+| `release:minor` | 마이너 버전 +1 | 1.0.6 → 1.1.0       |
+| `release:major` | 메이저 버전 +1 | 1.0.6 → 2.0.0       |
 
 **워크플로우 흐름:**
+
 1. Feature 브랜치에서 작업 완료
 2. PR 생성 → `release:*` 라벨 추가
 3. PR 머지 → GitHub Actions가 자동으로:
@@ -148,6 +149,7 @@ dart pub global activate cider
 ```
 
 PATH 설정 필요시:
+
 ```bash
 export PATH="$PATH":"$HOME/.pub-cache/bin"
 ```
@@ -183,6 +185,7 @@ make build-prod-android  # 자동으로 secrets 생성
 ```
 
 수동으로 생성하려면:
+
 ```bash
 make setup-signing
 ```
