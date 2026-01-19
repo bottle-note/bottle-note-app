@@ -25,6 +25,7 @@ dependencies:
   flutter_svg: ^2.0.10+1
   svg_path_parser: ^1.1.2
   flutter_native_splash: ^2.4.6
+  shared_preferences: ^2.5.2
 
 dev_dependencies:
   flutter_test:

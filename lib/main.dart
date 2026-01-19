@@ -1,6 +1,7 @@
 import 'package:app/permissions/FirebaseConfig.dart';
 import 'package:app/ui/loading_widget.dart';
 import 'package:app/utils/env/env.dart';
+import 'package:app/utils/url_restore_manager.dart';
 import 'package:app/web_view/web_view.dart';
 import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk_template.dart';
@@ -142,25 +143,40 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  String? _restoredUrl;
+
   @override
   void initState() {
     super.initState();
+    _initializeAndNavigate();
+  }
 
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const BottleNoteWebView(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 1000),
-        ),
-      );
-    });
+  Future<void> _initializeAndNavigate() async {
+    // Android에서 카메라 호출 후 앱이 kill된 경우 복원할 URL 확인
+    final restoredUrl = await UrlRestoreManager.consumeRestoredUrl();
+    if (restoredUrl != null) {
+      logger.d('복원할 URL 발견: $restoredUrl');
+      _restoredUrl = restoredUrl;
+    }
+
+    // 최소 3초 대기 (기존 동작 유지)
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            BottleNoteWebView(initialUrl: _restoredUrl),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 1000),
+      ),
+    );
   }
 
   @override
