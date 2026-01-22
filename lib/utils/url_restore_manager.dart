@@ -32,16 +32,17 @@ class UrlRestoreManager {
       return null;
     }
 
-    // 저장 후 사용했으면 바로 삭제
-    await clearSavedUrl();
-
     // 유효 시간 체크 (5분 초과시 무효)
     final now = DateTime.now().millisecondsSinceEpoch;
     final elapsed = now - savedTimestamp;
     if (elapsed > _validDurationMinutes * 60 * 1000) {
+      // 만료된 데이터도 정리
+      await clearSavedUrl();
       return null;
     }
 
+    // 정상적으로 복원된 경우 사용 후 삭제
+    await clearSavedUrl();
     return savedUrl;
   }
 

@@ -152,15 +152,19 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeAndNavigate() async {
-    // Android에서 카메라 호출 후 앱이 kill된 경우 복원할 URL 확인
-    final restoredUrl = await UrlRestoreManager.consumeRestoredUrl();
-    if (restoredUrl != null) {
-      logger.d('복원할 URL 발견: $restoredUrl');
-      _restoredUrl = restoredUrl;
-    }
+    try {
+      // Android에서 카메라 호출 후 앱이 kill된 경우 복원할 URL 확인
+      final restoredUrl = await UrlRestoreManager.consumeRestoredUrl();
+      if (restoredUrl != null) {
+        logger.d('복원할 URL 발견: $restoredUrl');
+        _restoredUrl = restoredUrl;
+      }
 
-    // 최소 3초 대기 (기존 동작 유지)
-    await Future.delayed(const Duration(seconds: 3));
+      // 최소 3초 대기 (기존 동작 유지)
+      await Future.delayed(const Duration(seconds: 3));
+    } catch (e) {
+      logger.e('스플래시 초기화 중 오류 발생: $e');
+    }
 
     if (!mounted) return;
 
