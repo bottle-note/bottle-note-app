@@ -17,6 +17,7 @@ class ConnectivityService {
   NetworkStatus get currentStatus => _currentStatus;
 
   StreamSubscription<List<ConnectivityResult>>? _subscription;
+  bool _isDisposed = false;
 
   ConnectivityService({required Logger logger}) : _logger = logger;
 
@@ -30,6 +31,8 @@ class ConnectivityService {
   }
 
   void _updateStatus(List<ConnectivityResult> results) {
+    if (_isDisposed) return;
+
     final isConnected =
         results.any((result) => result != ConnectivityResult.none);
 
@@ -37,7 +40,9 @@ class ConnectivityService {
 
     if (newStatus != _currentStatus) {
       _currentStatus = newStatus;
-      _networkStatusController.add(newStatus);
+      if (!_networkStatusController.isClosed) {
+        _networkStatusController.add(newStatus);
+      }
       _logger.d('Network status changed: $newStatus');
     }
   }
@@ -48,6 +53,7 @@ class ConnectivityService {
   }
 
   void dispose() {
+    _isDisposed = true;
     _subscription?.cancel();
     _networkStatusController.close();
   }
