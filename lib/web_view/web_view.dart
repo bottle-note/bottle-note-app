@@ -20,7 +20,9 @@ import '../actions/back_action_handler.dart';
 
 class BottleNoteWebView extends StatefulWidget {
   final VoidCallback? onLoaded;
-  const BottleNoteWebView({super.key, this.onLoaded});
+  final String? initialUrl;
+
+  const BottleNoteWebView({super.key, this.onLoaded, this.initialUrl});
 
   @override
   State<BottleNoteWebView> createState() => BottleNoteWebViewState();
@@ -204,7 +206,9 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     final content = Stack(
           children: [
             InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(Env.webViewUrl)),
+              initialUrlRequest: URLRequest(
+                url: WebUri(widget.initialUrl ?? Env.webViewUrl),
+              ),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 useShouldOverrideUrlLoading: true,
