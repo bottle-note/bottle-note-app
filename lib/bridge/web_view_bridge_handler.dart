@@ -11,6 +11,7 @@ import 'package:logger/logger.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:app/utils/url_restore_manager.dart';
 
 class WebViewBridgeHandler {
   final BuildContext context;
@@ -219,6 +220,13 @@ class WebViewBridgeHandler {
     }
 
     try {
+      // Android에서 카메라 호출 전 현재 URL 저장 (앱이 kill될 경우 복원용)
+      final currentUrl = await controller.getUrl();
+      if (currentUrl != null) {
+        await UrlRestoreManager.saveUrlBeforeCamera(currentUrl.toString());
+        logger.d('카메라 호출 전 URL 저장: $currentUrl');
+      }
+
       onShowLoading?.call('사진 촬영 중...');
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
@@ -235,9 +243,14 @@ class WebViewBridgeHandler {
           source: "openAlbum('data:image/png;base64,$base64Image')",
         );
       }
+
+      // 정상 복귀 시 저장된 URL 삭제 (앱이 kill되지 않았으므로)
+      await UrlRestoreManager.clearSavedUrl();
       onHideLoading?.call();
     } catch (e) {
       logger.e('Error taking image: $e');
+      // 에러 시에도 저장된 URL 삭제
+      await UrlRestoreManager.clearSavedUrl();
       onHideLoading?.call();
     }
   }
