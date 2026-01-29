@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:app/bridge/web_view_bridge_handler.dart';
+import 'package:app/utils/network/connectivity_service.dart';
+import 'package:app/ui/offline_screen.dart';
 import 'package:app/bridge/web_view_navigation_handler.dart';
 import 'package:app/main.dart';
 import 'package:app/utils/env/env.dart';
@@ -40,12 +43,25 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
 
   bool _isAppLoading = false;
   late String _url = '';
+  bool _isWebViewCreated = false;
+
+  // Network status
+  late ConnectivityService _connectivityService;
+  StreamSubscription<NetworkStatus>? _networkSubscription;
+  bool _isOffline = false;
+  bool _initialLoadCompleted = false;
+
+  // Lifecycle
+  DateTime? _backgroundTime;
+  static const Duration _refreshThreshold = Duration(minutes: 5);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _navigationHandler = WebViewNavigationHandler(logger: logger);
+    _connectivityService = ConnectivityService(logger: logger);
+    _initializeConnectivity();
     _permissionWithNotification();
     _setupPullToRefresh();
     _initialUserScripts = UnmodifiableListView([
@@ -56,6 +72,66 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     ]);
   }
 
+  Future<void> _initializeConnectivity() async {
+    await _connectivityService.initialize();
+
+    if (!mounted) return;
+
+    final isConnected = await _connectivityService.checkConnectivity();
+    if (!mounted) return;
+
+    if (!isConnected) {
+      setState(() {
+        _isOffline = true;
+      });
+    }
+
+    _networkSubscription =
+        _connectivityService.networkStatusStream.listen((status) {
+      if (!mounted) return;
+
+      final wasOffline = _isOffline;
+      setState(() {
+        _isOffline = status == NetworkStatus.offline;
+      });
+
+      // Offline -> Online: auto reload
+      if (wasOffline &&
+          status == NetworkStatus.online &&
+          _initialLoadCompleted &&
+          _isWebViewCreated) {
+        _webviewController.reload();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.paused:
+        _backgroundTime = DateTime.now();
+        break;
+      case AppLifecycleState.resumed:
+        _handleAppResumed();
+        break;
+      default:
+        break;
+    }
+  }
+
+  void _handleAppResumed() {
+    if (_backgroundTime != null && _initialLoadCompleted && _isWebViewCreated) {
+      final duration = DateTime.now().difference(_backgroundTime!);
+      if (duration > _refreshThreshold) {
+        logger.d('Long background duration: ${duration.inSeconds}s. Reloading WebView.');
+        _webviewController.reload();
+      }
+      _backgroundTime = null;
+    }
+  }
+
   void _setupPullToRefresh() {
     _pullToRefreshController = PullToRefreshController(
       settings: PullToRefreshSettings(
@@ -63,6 +139,8 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
         backgroundColor: Colors.white,
       ),
       onRefresh: () async {
+        if (!_isWebViewCreated) return;
+
         if (Platform.isAndroid) {
           _webviewController.reload();
         } else if (Platform.isIOS) {
@@ -77,9 +155,35 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Cancel network subscription first to prevent callbacks on disposed controller
+    _networkSubscription?.cancel();
+    _connectivityService.dispose();
     _pullToRefreshController.dispose();
-    _webviewController.dispose();
+    if (_isWebViewCreated) {
+      _webviewController.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _retryConnection() async {
+    final isConnected = await _connectivityService.checkConnectivity();
+    if (!mounted) return;
+
+    if (isConnected) {
+      setState(() {
+        _isOffline = false;
+      });
+      if (_initialLoadCompleted && _isWebViewCreated) {
+        _webviewController.reload();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('인터넷 연결을 확인해 주세요.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -106,7 +210,9 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: _buildBody(colors),
+        body: _isOffline && !_initialLoadCompleted
+            ? OfflineScreen(onRetry: _retryConnection)
+            : _buildBody(colors),
       ),
     );
   }
@@ -131,6 +237,7 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
               pullToRefreshController: _pullToRefreshController,
               onWebViewCreated: (controller) {
                 _webviewController = controller;
+                _isWebViewCreated = true;
                 _webViewBridgeHandler = WebViewBridgeHandler(
                   controller: controller,
                   logger: logger,
@@ -153,6 +260,7 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
               onLoadStart: (controller, url) {},
               onLoadStop: (controller, url) async {
                 _pullToRefreshController.endRefreshing();
+                _initialLoadCompleted = true;
 
                 // 웹뷰가 완전히 로드된 후 JavaScript 초기화
                 if (_webViewBridgeHandler != null) {
