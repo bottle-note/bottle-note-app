@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:app/bridge/bridge_setup_script.dart';
 import 'package:app/bridge/web_view_bridge_handler.dart';
 import 'package:app/utils/network/connectivity_service.dart';
 import 'package:app/ui/offline_screen.dart';
@@ -66,7 +67,7 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     _setupPullToRefresh();
     _initialUserScripts = UnmodifiableListView([
       UserScript(
-        source: WebViewBridgeHandler.bridgeSetupScript,
+        source: BridgeSetupScript.script,
         injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
       ),
     ]);
