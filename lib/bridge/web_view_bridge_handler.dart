@@ -7,7 +7,6 @@ import 'package:app/bridge/handlers/device_bridge_handler.dart';
 import 'package:app/bridge/handlers/media_bridge_handler.dart';
 import 'package:app/bridge/handlers/share_bridge_handler.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:logger/logger.dart';
 
@@ -23,9 +22,6 @@ class WebViewBridgeHandler extends BridgeHandlerBase
   final InAppWebViewController controller;
   @override
   final Logger logger;
-
-  final MethodChannel platform =
-      const MethodChannel('com.bottlenote.official.app/intents');
 
   @override
   final Function(String)? onShowLoading;
@@ -93,7 +89,7 @@ class WebViewBridgeHandler extends BridgeHandlerBase
       handlerName: name,
       callback: (args) async {
         try {
-          logger.d('Channel $name called with args: $args');
+          logger.d('Channel $name called (args count: ${args.length})');
           final result = await handler(args);
           if (result is Map) return result;
           return {'success': true};
@@ -130,60 +126,61 @@ class WebViewBridgeHandler extends BridgeHandlerBase
         'AppBridge.appleLogin', (args) => handleAppleLogin(args));
 
     _registerChannel('AppBridge.haptic', (args) async {
-      triggerHaptic(args);
+      await triggerHaptic(args);
     });
 
     _registerChannel('AppBridge.env', (args) async {
-      switchEnvironment(args);
+      await switchEnvironment(args);
     });
 
     _registerChannel('AppBridge.share', (args) => handleShare(args));
   }
 
   /// Legacy FlutterMessageQueue 메시지 라우팅 (구버전 웹 호환)
-  void _handleFlutterMessageQueue(String message, List<dynamic> arguments) {
+  Future<void> _handleFlutterMessageQueue(
+      String message, List<dynamic> arguments) async {
     switch (message) {
       case 'deviceToken':
-        sendDeviceToken();
+        await sendDeviceToken();
         break;
       case 'checkPlatform':
         logger.d('checkPlatform called');
         logger.d('Platform: ${Platform.operatingSystem}');
-        controller.evaluateJavascript(
+        await controller.evaluateJavascript(
           source: "checkPlatform('${Platform.operatingSystem}')",
         );
         break;
       case 'openAlbum':
         logger.d('openAlbum called with arguments: $arguments');
-        pickImgFromAlbum();
+        await pickImgFromAlbum();
         break;
       case 'openAlbumMultiple':
         logger.d('openAlbumMultiple called with arguments: $arguments');
-        pickMultipleImgsFromAlbum();
+        await pickMultipleImgsFromAlbum();
         break;
       case 'openCamera':
         logger.d('openCamera called with arguments: $arguments');
-        pickImgFromCamera();
+        await pickImgFromCamera();
         break;
       case 'loginWithKakao':
         logger.d('loginWithKakao called with arguments: $arguments');
-        handleKakaoLogin();
+        await handleKakaoLogin();
         break;
       case 'loginWithApple':
         logger.d('loginWithApple called with arguments: $arguments');
-        handleAppleLogin(arguments);
+        await handleAppleLogin(arguments);
         break;
       case 'triggerHaptic':
         logger.d('triggerHaptic called with arguments: $arguments');
-        triggerHaptic(arguments);
+        await triggerHaptic(arguments);
         break;
       case 'switchEnv':
         logger.d('switchEnvironment called with arguments: $arguments');
-        switchEnvironment(arguments);
+        await switchEnvironment(arguments);
         break;
       case 'share':
         logger.d('share called with arguments: $arguments');
-        handleShare(arguments);
+        await handleShare(arguments);
         break;
       default:
         logger

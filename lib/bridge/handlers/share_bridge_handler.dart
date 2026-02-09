@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:app/bridge/handlers/bridge_handler_base.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -52,8 +54,9 @@ mixin ShareBridgeHandler on BridgeHandlerBase {
       }
     } catch (e) {
       logger.e('공유 중 오류 발생: $e');
+      final escapedError = jsonEncode(e.toString());
       await controller.evaluateJavascript(
-        source: "onShareError && onShareError('$e')",
+        source: "onShareError && onShareError($escapedError)",
       );
     }
   }

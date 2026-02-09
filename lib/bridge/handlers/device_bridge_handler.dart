@@ -26,7 +26,7 @@ mixin DeviceBridgeHandler on BridgeHandlerBase {
     }
   }
 
-  void triggerHaptic(List<dynamic> arguments) async {
+  Future<void> triggerHaptic(List<dynamic> arguments) async {
     if (arguments.isEmpty) {
       logger.w('햅틱 피드백 타입이 전달되지 않았습니다.');
       return;
@@ -71,7 +71,7 @@ mixin DeviceBridgeHandler on BridgeHandlerBase {
     }
   }
 
-  void switchEnvironment(List<dynamic> arguments) async {
+  Future<void> switchEnvironment(List<dynamic> arguments) async {
     logger.d('switchEnvironment called with arguments: $arguments');
     if (arguments.isNotEmpty && arguments[0] is String) {
       final env = arguments[0] as String;

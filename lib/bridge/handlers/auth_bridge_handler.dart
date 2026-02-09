@@ -11,18 +11,19 @@ mixin AuthBridgeHandler on BridgeHandlerBase {
       KakaoLoginResult? kakaoLoginResult = await loginWithKakao();
 
       if (kakaoLoginResult == null) {
-        onHideLoading?.call();
         return;
       }
 
       await controller.evaluateJavascript(
         source: "onKakaoLoginSuccess('${kakaoLoginResult.accessToken}')",
       );
-      onHideLoading?.call();
     } catch (error) {
-      await controller.evaluateJavascript(
-        source: "onKakaoLoginError('$error')",
-      );
+      try {
+        await controller.evaluateJavascript(
+          source: "onKakaoLoginError('$error')",
+        );
+      } catch (_) {}
+    } finally {
       onHideLoading?.call();
     }
   }
@@ -35,7 +36,6 @@ mixin AuthBridgeHandler on BridgeHandlerBase {
       AppleLoginResult? appleLoginResult = await loginWithApple(nonce);
 
       if (appleLoginResult == null) {
-        onHideLoading?.call();
         return;
       }
 
@@ -49,11 +49,13 @@ mixin AuthBridgeHandler on BridgeHandlerBase {
       await controller.evaluateJavascript(
         source: "onAppleLoginSuccess('$json')",
       );
-      onHideLoading?.call();
     } catch (error) {
-      await controller.evaluateJavascript(
-        source: "onAppleLoginError('$error')",
-      );
+      try {
+        await controller.evaluateJavascript(
+          source: "onAppleLoginError('$error')",
+        );
+      } catch (_) {}
+    } finally {
       onHideLoading?.call();
     }
   }
