@@ -8,18 +8,6 @@ import 'package:permission_handler/permission_handler.dart';
 /// 이미지 선택 및 카메라 관련 브릿지 핸들러
 mixin MediaBridgeHandler on BridgeHandlerBase {
   Future<void> pickImgFromAlbum() async {
-    final status = await Permission.photos.status;
-
-    if (status.isPermanentlyDenied) {
-      logger.d('앨범 권한 영구 거부됨. 설정으로 안내');
-      showPermissionDialog(
-        title: '앨범 접근 권한 안내',
-        content: '사진을 첨부하려면 접근 권한이 필요해요.\n설정에서 허용해 주시겠어요?',
-        onConfirm: openAppSettings,
-      );
-      return;
-    }
-
     try {
       onShowLoading?.call('이미지 처리 중...');
       final ImagePicker picker = ImagePicker();
@@ -90,18 +78,6 @@ mixin MediaBridgeHandler on BridgeHandlerBase {
 
   Future<void> pickMultipleImgsFromAlbum() async {
     const int maxImages = 5;
-
-    final status = await Permission.photos.status;
-
-    if (status.isPermanentlyDenied) {
-      logger.d('앨범 권한 영구 거부됨. 설정으로 안내');
-      showPermissionDialog(
-        title: '앨범 접근 권한 안내',
-        content: '사진을 첨부하려면 접근 권한이 필요해요.\n설정에서 허용해 주시겠어요?',
-        onConfirm: openAppSettings,
-      );
-      return;
-    }
 
     try {
       onShowLoading?.call('이미지 선택 중...');

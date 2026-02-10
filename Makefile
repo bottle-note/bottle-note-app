@@ -287,6 +287,76 @@ build-prod-ios: _ensure-env-prod
 	@echo "✅ 빌드 완료!"
 
 # ============================================
+# 🍎 iOS 배포 (Fastlane)
+# ============================================
+
+# iOS 배포 도구 설치 (최초 1회)
+setup-ios-deploy:
+	@echo "======iOS 배포 도구 설치 중...======"
+	@which bundle > /dev/null || (echo "❌ Bundler가 없습니다. gem install bundler 실행하세요." && exit 1)
+	cd ios && bundle install
+	@echo "✅ Fastlane 설치 완료!"
+
+# .env.prod에서 ASC 인증 환경변수 검증 헬퍼
+_load-asc-env:
+	@if [ ! -f ".env.prod" ]; then \
+		echo "❌ .env.prod 파일이 없습니다. make prepare-env-prod 를 먼저 실행하세요."; \
+		exit 1; \
+	fi
+	@ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
+	ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
+	ASC_KEY_BASE64=$$(grep '^ASC_KEY_BASE64=' .env.prod | cut -d '=' -f2); \
+	if [ -z "$$ASC_KEY_ID" ] || [ -z "$$ASC_ISSUER_ID" ] || [ -z "$$ASC_KEY_BASE64" ]; then \
+		echo "❌ .env.prod에 App Store Connect API 키 정보가 누락되었습니다."; \
+		echo "   필요한 값: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64"; \
+		echo ""; \
+		echo "   [설정 방법]"; \
+		echo "   1. App Store Connect → 사용자 및 액세스 → 통합 → API 키 생성"; \
+		echo "   2. .p8 파일을 base64 인코딩: base64 -i AuthKey_XXXX.p8"; \
+		echo "   3. .env.prod에 추가:"; \
+		echo "      ASC_KEY_ID=키ID"; \
+		echo "      ASC_ISSUER_ID=발급자ID"; \
+		echo "      ASC_KEY_BASE64=base64인코딩값"; \
+		exit 1; \
+	fi
+
+# IPA 빌드 (내부 헬퍼 - Fastfile에서 호출)
+_build-ios-ipa: _ensure-env-prod
+	@echo "======iOS IPA 빌드 중...======"
+	$(FLUTTER) build ipa --release --dart-define=FLAVOR=prod --export-options-plist=ios/ExportOptions.plist 2>/dev/null || \
+	$(FLUTTER) build ipa --release --dart-define=FLAVOR=prod
+	@echo "✅ IPA 빌드 완료!"
+
+# TestFlight 배포
+deploy-ios-testflight: _ensure-env-prod _load-asc-env
+	@echo "======iOS TestFlight 배포 중...======"
+	@# IPA 빌드
+	$(MAKE) _build-ios-ipa
+	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
+	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | cut -d '=' -f2 | base64 --decode); \
+	export IPA_PATH=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	cd ios && bundle exec fastlane beta
+	@echo "✅ TestFlight 배포 완료!"
+
+# TestFlight 배포 (별칭)
+deploy-ios: deploy-ios-testflight
+
+# App Store 제출
+deploy-ios-appstore: _ensure-env-prod _load-asc-env
+	@echo "======iOS App Store 제출 중...======"
+	@# IPA 빌드
+	$(MAKE) _build-ios-ipa
+	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
+	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | cut -d '=' -f2 | base64 --decode); \
+	export IPA_PATH=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	cd ios && bundle exec fastlane release
+	@echo "✅ App Store 제출 완료!"
+
+# ============================================
 # 📋 도움말
 # ============================================
 
@@ -330,10 +400,23 @@ help:
 	@echo "  make build-dev-ios        - 개발 iOS 빌드"
 	@echo "  make build-prod-ios       - 프로덕션 iOS 빌드"
 	@echo ""
+	@echo "🍎 iOS 배포 (Fastlane):"
+	@echo "  make setup-ios-deploy       - Fastlane 설치 (최초 1회)"
+	@echo "  make deploy-ios             - TestFlight 배포 (별칭)"
+	@echo "  make deploy-ios-testflight  - TestFlight 배포"
+	@echo "  make deploy-ios-appstore    - App Store 제출"
+	@echo ""
+	@echo "  [사전 준비]"
+	@echo "  1. App Store Connect → 사용자 및 액세스 → 통합 → API 키 생성"
+	@echo "  2. .p8 파일을 base64 인코딩: base64 -i AuthKey_XXXX.p8"
+	@echo "  3. .env.prod에 ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64 추가"
+	@echo ""
 
 .PHONY: setup setup-signing fresh clean-ios clean-ios-quick clean-android codegen codegen-watch \
         version bump-build bump-patch bump-minor bump-major \
         decrypt-env-dev decrypt-env-prod prepare-env-dev prepare-env-prod \
         build-env-dev build-env-prod _ensure-env-dev _ensure-env-prod run run-dev run-local run-prod \
         build-dev-android build-prod-android build-prod-android-aab \
-        build-dev-ios build-prod-ios help
+        build-dev-ios build-prod-ios \
+        setup-ios-deploy _load-asc-env _build-ios-ipa \
+        deploy-ios deploy-ios-testflight deploy-ios-appstore help

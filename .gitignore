@@ -303,4 +303,12 @@ app.*.map.json
 # FVM Version Cache
 .fvm/
 
+# Fastlane
+ios/fastlane/report.xml
+ios/fastlane/README.md
+ios/fastlane/screenshots/
+ios/fastlane/test_output/
+*.ipa
+*.dSYM.zip
+
 /secrets/*
