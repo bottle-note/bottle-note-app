@@ -333,10 +333,12 @@ deploy-ios-testflight: _ensure-env-prod _load-asc-env
 	@# IPA 빌드
 	$(MAKE) _build-ios-ipa
 	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
-	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
-	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
 	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
-	export IPA_PATH=$$(pwd)/$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	IPA_FILE=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	if [ -z "$$IPA_FILE" ]; then echo "❌ IPA 파일을 찾을 수 없습니다. 빌드를 확인하세요."; exit 1; fi; \
+	export IPA_PATH=$$(pwd)/$$IPA_FILE; \
 	cd ios && bundle exec fastlane beta
 	@echo "✅ TestFlight 배포 완료!"
 
@@ -349,10 +351,12 @@ deploy-ios-appstore: _ensure-env-prod _load-asc-env
 	@# IPA 빌드
 	$(MAKE) _build-ios-ipa
 	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
-	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
-	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
 	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
-	export IPA_PATH=$$(pwd)/$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	IPA_FILE=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	if [ -z "$$IPA_FILE" ]; then echo "❌ IPA 파일을 찾을 수 없습니다. 빌드를 확인하세요."; exit 1; fi; \
+	export IPA_PATH=$$(pwd)/$$IPA_FILE; \
 	cd ios && bundle exec fastlane release
 	@echo "✅ App Store 제출 완료!"
 
