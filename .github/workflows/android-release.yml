@@ -255,6 +255,15 @@ jobs:
           path: ./mapping
         continue-on-error: true
 
+      - name: Check mapping file
+        id: mapping
+        run: |
+          if [ -f ./mapping/mapping.txt ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload to Play Store
         uses: r0adkll/upload-google-play@v1
         with:
@@ -263,7 +272,7 @@ jobs:
           releaseFiles: ./release/*.aab
           track: internal
           status: draft
-          mappingFile: ./mapping/mapping.txt
+          mappingFile: ${{ steps.mapping.outputs.exists == 'true' && './mapping/mapping.txt' || '' }}
 
       - name: Deploy Summary
         run: |
