@@ -76,7 +76,7 @@ setup-signing:
 	@KEYSTORE_PASSWORD=$$(grep '^KEYSTORE_PASSWORD=' .env.prod | cut -d '=' -f2); \
 	KEY_PASSWORD=$$(grep '^KEY_PASSWORD=' .env.prod | cut -d '=' -f2); \
 	KEY_ALIAS=$$(grep '^KEY_ALIAS=' .env.prod | cut -d '=' -f2); \
-	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.prod | cut -d '=' -f2); \
+	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.prod | sed 's/^KEYSTORE_BASE64=//'); \
 	if [ -z "$$KEYSTORE_PASSWORD" ] || [ -z "$$KEY_PASSWORD" ] || [ -z "$$KEY_ALIAS" ] || [ -z "$$KEYSTORE_BASE64" ]; then \
 		echo "❌ .env.prod에 Android Signing 값이 누락되었습니다."; \
 		echo "   필요한 값: KEYSTORE_PASSWORD, KEY_PASSWORD, KEY_ALIAS, KEYSTORE_BASE64"; \
@@ -211,7 +211,7 @@ _ensure-env-prod:
 	@KEYSTORE_PASSWORD=$$(grep '^KEYSTORE_PASSWORD=' .env.prod | cut -d '=' -f2); \
 	KEY_PASSWORD=$$(grep '^KEY_PASSWORD=' .env.prod | cut -d '=' -f2); \
 	KEY_ALIAS=$$(grep '^KEY_ALIAS=' .env.prod | cut -d '=' -f2); \
-	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.prod | cut -d '=' -f2); \
+	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.prod | sed 's/^KEYSTORE_BASE64=//'); \
 	if [ -n "$$KEYSTORE_PASSWORD" ] && [ -n "$$KEY_PASSWORD" ] && [ -n "$$KEY_ALIAS" ] && [ -n "$$KEYSTORE_BASE64" ]; then \
 		echo "storePassword=$$KEYSTORE_PASSWORD" > secrets/key.properties; \
 		echo "keyPassword=$$KEY_PASSWORD" >> secrets/key.properties; \
@@ -303,9 +303,9 @@ _load-asc-env:
 		echo "❌ .env.prod 파일이 없습니다. make prepare-env-prod 를 먼저 실행하세요."; \
 		exit 1; \
 	fi
-	@ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
-	ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
-	ASC_KEY_BASE64=$$(grep '^ASC_KEY_BASE64=' .env.prod | cut -d '=' -f2); \
+	@ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
+	ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
+	ASC_KEY_BASE64=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//'); \
 	if [ -z "$$ASC_KEY_ID" ] || [ -z "$$ASC_ISSUER_ID" ] || [ -z "$$ASC_KEY_BASE64" ]; then \
 		echo "❌ .env.prod에 App Store Connect API 키 정보가 누락되었습니다."; \
 		echo "   필요한 값: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64"; \
@@ -333,10 +333,12 @@ deploy-ios-testflight: _ensure-env-prod _load-asc-env
 	@# IPA 빌드
 	$(MAKE) _build-ios-ipa
 	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
-	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
-	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
-	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | cut -d '=' -f2 | base64 --decode); \
-	export IPA_PATH=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
+	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
+	IPA_FILE=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	if [ -z "$$IPA_FILE" ]; then echo "❌ IPA 파일을 찾을 수 없습니다. 빌드를 확인하세요."; exit 1; fi; \
+	export IPA_PATH=$$(pwd)/$$IPA_FILE; \
 	cd ios && bundle exec fastlane beta
 	@echo "✅ TestFlight 배포 완료!"
 
@@ -349,10 +351,12 @@ deploy-ios-appstore: _ensure-env-prod _load-asc-env
 	@# IPA 빌드
 	$(MAKE) _build-ios-ipa
 	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
-	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | cut -d '=' -f2); \
-	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | cut -d '=' -f2); \
-	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | cut -d '=' -f2 | base64 --decode); \
-	export IPA_PATH=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
+	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
+	IPA_FILE=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
+	if [ -z "$$IPA_FILE" ]; then echo "❌ IPA 파일을 찾을 수 없습니다. 빌드를 확인하세요."; exit 1; fi; \
+	export IPA_PATH=$$(pwd)/$$IPA_FILE; \
 	cd ios && bundle exec fastlane release
 	@echo "✅ App Store 제출 완료!"
 
