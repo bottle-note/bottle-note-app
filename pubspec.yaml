@@ -2,7 +2,7 @@ name: app
 description: '보틀노트 공식 앱'
 publish_to: 'none'
 
-version: 1.0.7+34
+version: 1.0.7+35
 
 environment:
   sdk: ^3.5.3
