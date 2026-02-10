@@ -24,11 +24,6 @@ on:
           - minor    # 마이너 (1.0.6 → 1.1.0)
           - major    # 메이저 (1.0.6 → 2.0.0)
           - none     # 버전 변경 없이 현재 버전으로 빌드
-      upload_to_play_store:
-        description: 'Play Store에 업로드할까요?'
-        required: false
-        default: 'false'
-        type: boolean
 
 permissions:
   contents: write
@@ -240,12 +235,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "AAB 파일이 Artifacts에 업로드되었습니다." >> $GITHUB_STEP_SUMMARY
 
-  # Play Store 업로드 (수동 실행 시 선택)
+  # Play Store 자동 배포
   deploy:
     name: Deploy to Play Store
     needs: release
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.upload_to_play_store == 'true' }}
 
     steps:
       - name: Download AAB
@@ -253,6 +247,22 @@ jobs:
         with:
           name: android-release-aab
           path: ./release
+
+      - name: Download mapping.txt
+        uses: actions/download-artifact@v4
+        with:
+          name: android-mapping
+          path: ./mapping
+        continue-on-error: true
+
+      - name: Check mapping file
+        id: mapping
+        run: |
+          if [ -f ./mapping/mapping.txt ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload to Play Store
         uses: r0adkll/upload-google-play@v1
@@ -262,3 +272,15 @@ jobs:
           releaseFiles: ./release/*.aab
           track: internal
           status: draft
+          mappingFile: ${{ steps.mapping.outputs.exists == 'true' && './mapping/mapping.txt' || '' }}
+
+      - name: Deploy Summary
+        run: |
+          echo "## 🏪 Play Store 배포 완료" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Track | internal |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | draft |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Play Console에서 internal 트랙을 확인하세요." >> $GITHUB_STEP_SUMMARY
