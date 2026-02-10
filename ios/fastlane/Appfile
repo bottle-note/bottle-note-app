@@ -1,0 +1,5 @@
+app_identifier("com.bottlenote.official.app")
+apple_id(ENV["APPLE_ID"]) # App Store Connect 이메일 (환경변수)
+team_id("3T9984GSWD")
+
+itc_team_id(ENV["ITC_TEAM_ID"]) # App Store Connect Team ID (환경변수, 선택)

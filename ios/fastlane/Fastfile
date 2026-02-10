@@ -1,0 +1,71 @@
+default_platform(:ios)
+
+# App Store Connect API Key 로드
+def load_asc_api_key
+  # .env.prod에서 값 읽기 (Makefile에서 환경변수로 전달)
+  key_id = ENV["ASC_KEY_ID"]
+  issuer_id = ENV["ASC_ISSUER_ID"]
+  key_content = ENV["ASC_KEY_CONTENT"]
+
+  unless key_id && issuer_id && key_content
+    UI.user_error!(
+      "ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_CONTENT 환경변수가 필요합니다.\n" \
+      ".env.prod에 다음을 추가하세요:\n" \
+      "  ASC_KEY_ID=your_key_id\n" \
+      "  ASC_ISSUER_ID=your_issuer_id\n" \
+      "  ASC_KEY_BASE64=base64_encoded_p8_content"
+    )
+  end
+
+  app_store_connect_api_key(
+    key_id: key_id,
+    issuer_id: issuer_id,
+    key_content: key_content,
+    in_house: false
+  )
+end
+
+platform :ios do
+  desc "TestFlight에 배포"
+  lane :beta do
+    api_key = load_asc_api_key
+
+    # Flutter IPA 빌드 (Makefile에서 이미 빌드된 경우 스킵 가능)
+    ipa_path = ENV["IPA_PATH"] || "../build/ios/ipa/app.ipa"
+
+    unless File.exist?(ipa_path)
+      UI.message("IPA 빌드 중...")
+      sh("cd ../.. && make _build-ios-ipa")
+      ipa_path = Dir["../../build/ios/ipa/*.ipa"].first
+    end
+
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa_path,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "App Store에 제출"
+  lane :release do
+    api_key = load_asc_api_key
+
+    ipa_path = ENV["IPA_PATH"] || "../build/ios/ipa/app.ipa"
+
+    unless File.exist?(ipa_path)
+      UI.message("IPA 빌드 중...")
+      sh("cd ../.. && make _build-ios-ipa")
+      ipa_path = Dir["../../build/ios/ipa/*.ipa"].first
+    end
+
+    upload_to_app_store(
+      api_key: api_key,
+      ipa: ipa_path,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      skip_metadata: true,
+      skip_screenshots: true
+    )
+  end
+end
