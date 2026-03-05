@@ -51,19 +51,19 @@ mixin DeviceBridgeHandler on BridgeHandlerBase {
           // 레벨 간 최소 1.4배 차이 유지 (Android Haptics Design Principles)
           switch (hapticType) {
             case 'light':
-              Vibration.vibrate(duration: 50, amplitude: 30);
+              await Vibration.vibrate(duration: 50, amplitude: 30);
               break;
             case 'medium':
-              Vibration.vibrate(duration: 43, amplitude: 50);
+              await Vibration.vibrate(duration: 43, amplitude: 50);
               break;
             case 'heavy':
-              Vibration.vibrate(duration: 60, amplitude: 70);
+              await Vibration.vibrate(duration: 60, amplitude: 70);
               break;
             case 'selection':
-              Vibration.vibrate(duration: 20, amplitude: 20);
+              await Vibration.vibrate(duration: 20, amplitude: 20);
               break;
             case 'vibrate':
-              Vibration.vibrate(duration: 500, amplitude: 128);
+              await Vibration.vibrate(duration: 500, amplitude: 128);
               break;
             default:
               logger.w('Unknown haptic feedback type: $hapticType');
