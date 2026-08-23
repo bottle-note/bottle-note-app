@@ -51,7 +51,8 @@ android {
     defaultConfig {
         applicationId = "com.bottlenote.official.app"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Google Play의 최신 Android API 요구사항에 맞춰 API 36을 명시적으로 타겟팅한다.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
@@ -109,5 +110,4 @@ android {
 flutter {
     source = "../.."
 }
-
 
