@@ -204,9 +204,7 @@ jobs:
 
       - name: Build AAB
         run: |
-          # .env에서 KAKAO_NATIVE_APP_KEY 읽기
-          export KAKAO_NATIVE_APP_KEY=$(grep '^KAKAO_NATIVE_APP_KEY=' .env | cut -d '=' -f2)
-          flutter build appbundle --release --dart-define=FLAVOR=prod
+          flutter build appbundle --release --dart-define-from-file=config/flavors/prod.json
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

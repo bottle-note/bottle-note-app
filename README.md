@@ -50,6 +50,10 @@ make run-dev
 | `make run-local` | 로컬     | 로컬 웹서버 연결 (localhost:3000) |
 | `make run-prod`  | 프로덕션 | 프로덕션 환경 실행 (별칭)         |
 
+> 빌드 환경 값(`FLAVOR`, 카카오 네이티브 앱 키)은 `config/flavors/<dev|prod>.json`에 있고 `--dart-define-from-file`로 넘긴다.
+> 개발 빌드는 Bottle Note-TEST 카카오 앱, 운영 빌드는 Bottle Note 카카오 앱 키를 쓴다.
+> `flutter run`을 직접 실행할 때도 `--dart-define-from-file=config/flavors/dev.json`을 붙인다.
+
 ### 빌드
 
 | 명령어                        | 플랫폼      | 환경     |

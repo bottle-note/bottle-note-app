@@ -235,22 +235,22 @@ _ensure-env-prod:
 # 프로덕션 환경 실행
 run: _ensure-env-prod
 	@echo "======프로덕션 환경 실행중... (FLAVOR=prod)======"
-	$(FLUTTER) run --dart-define=FLAVOR=prod
+	$(FLUTTER) run --dart-define-from-file=config/flavors/prod.json
 
 # 개발 환경 실행
 run-dev: _ensure-env-dev
 	@echo "======개발 환경 실행중... (FLAVOR=dev)======"
-	$(FLUTTER) run --dart-define=FLAVOR=dev
+	$(FLUTTER) run --dart-define-from-file=config/flavors/dev.json
 
 # 로컬 웹서버(localhost:3000) 연결 실행
 run-local: _ensure-env-dev
 	@echo "======로컬 웹서버 연결 실행중... (WebView → localhost:3000)======"
-	$(FLUTTER) run --dart-define=FLAVOR=dev --dart-define=USE_LOCAL_WEBVIEW=true
+	$(FLUTTER) run --dart-define-from-file=config/flavors/dev.json --dart-define=USE_LOCAL_WEBVIEW=true
 
 # 프로덕션 환경 실행 (별칭)
 run-prod: _ensure-env-prod
 	@echo "======프로덕션 환경 실행중... (FLAVOR=prod)======"
-	$(FLUTTER) run --dart-define=FLAVOR=prod
+	$(FLUTTER) run --dart-define-from-file=config/flavors/prod.json
 
 # ============================================
 # 🔨 빌드
@@ -259,31 +259,31 @@ run-prod: _ensure-env-prod
 # 개발 환경 빌드 (Android APK)
 build-dev-android: _ensure-env-dev
 	@echo "======개발 환경 빌드 중 (Android APK)...======"
-	$(FLUTTER) build apk --dart-define=FLAVOR=dev
+	$(FLUTTER) build apk --dart-define-from-file=config/flavors/dev.json
 	@echo "✅ 빌드 완료!"
 
 # 프로덕션 환경 빌드 (Android APK)
 build-prod-android: _ensure-env-prod
 	@echo "======프로덕션 환경 빌드 중 (Android APK)...======"
-	$(FLUTTER) build apk --release --dart-define=FLAVOR=prod
+	$(FLUTTER) build apk --release --dart-define-from-file=config/flavors/prod.json
 	@echo "✅ 빌드 완료!"
 
 # 프로덕션 환경 빌드 (Android AAB - Play Store용)
 build-prod-android-aab: _ensure-env-prod
 	@echo "======프로덕션 환경 AAB 빌드 중 (Android)...======"
-	$(FLUTTER) build appbundle --release --dart-define=FLAVOR=prod
+	$(FLUTTER) build appbundle --release --dart-define-from-file=config/flavors/prod.json
 	@echo "✅ AAB 빌드 완료!"
 
 # 개발 환경 빌드 (iOS)
 build-dev-ios: _ensure-env-dev
 	@echo "======개발 환경 빌드 중 (iOS)...======"
-	$(FLUTTER) build ios --dart-define=FLAVOR=dev
+	$(FLUTTER) build ios --dart-define-from-file=config/flavors/dev.json
 	@echo "✅ 빌드 완료!"
 
 # 프로덕션 환경 빌드 (iOS)
 build-prod-ios: _ensure-env-prod
 	@echo "======프로덕션 환경 빌드 중 (iOS)...======"
-	$(FLUTTER) build ios --release --dart-define=FLAVOR=prod
+	$(FLUTTER) build ios --release --dart-define-from-file=config/flavors/prod.json
 	@echo "✅ 빌드 완료!"
 
 # ============================================
@@ -323,8 +323,8 @@ _load-asc-env:
 # IPA 빌드 (내부 헬퍼 - Fastfile에서 호출)
 _build-ios-ipa: _ensure-env-prod
 	@echo "======iOS IPA 빌드 중...======"
-	$(FLUTTER) build ipa --release --dart-define=FLAVOR=prod --export-options-plist=ios/ExportOptions.plist 2>/dev/null || \
-	$(FLUTTER) build ipa --release --dart-define=FLAVOR=prod
+	$(FLUTTER) build ipa --release --dart-define-from-file=config/flavors/prod.json --export-options-plist=ios/ExportOptions.plist 2>/dev/null || \
+	$(FLUTTER) build ipa --release --dart-define-from-file=config/flavors/prod.json
 	@echo "✅ IPA 빌드 완료!"
 
 # TestFlight 배포

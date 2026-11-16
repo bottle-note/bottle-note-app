@@ -7,6 +7,10 @@ const String flavor = String.fromEnvironment(
   defaultValue: 'dev',
 );
 
+/// 카카오 네이티브 앱 키. config/flavors/<dev|prod>.json에서 주입된다.
+/// (개발: Bottle Note-TEST 앱, 운영: Bottle Note 앱)
+const String kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
+
 /// 로컬 웹서버(localhost:3000)에 연결할지 여부
 const bool useLocalWebView = bool.fromEnvironment(
   'USE_LOCAL_WEBVIEW',
@@ -15,9 +19,6 @@ const bool useLocalWebView = bool.fromEnvironment(
 
 @Envied(path: '.env', obfuscate: true)
 abstract class Env {
-  @EnviedField(varName: 'KAKAO_NATIVE_APP_KEY')
-  static final String kaKaoNativeAppKey = _Env.kaKaoNativeAppKey;
-
   @EnviedField(varName: 'FIREBASE_ANDROID_API_KEY')
   static final String firebaseAndroidApiKey = _Env.firebaseAndroidApiKey;
 

@@ -93,7 +93,12 @@ void main() async {
   await firebaseInitialized();
 
   try {
-    KakaoSdk.init(nativeAppKey: Env.kaKaoNativeAppKey);
+    if (kakaoNativeAppKey.isEmpty) {
+      throw StateError(
+        'KAKAO_NATIVE_APP_KEY 없음: --dart-define-from-file=config/flavors/<dev|prod>.json 으로 실행하세요.',
+      );
+    }
+    KakaoSdk.init(nativeAppKey: kakaoNativeAppKey);
   } catch (e) {
     logger.e('카카오 SDK 초기화 실패: $e');
   }

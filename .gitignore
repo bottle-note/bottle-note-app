@@ -312,3 +312,5 @@ ios/fastlane/test_output/
 *.dSYM.zip
 
 /secrets/*
+# Flutter dart-define에서 생성되는 iOS 설정 (ios/scripts/write_dart_defines_xcconfig.sh)
+ios/Flutter/DartDefines.xcconfig
