@@ -9,76 +9,43 @@ DART := fvm dart
 # 서브모듈 경로
 ENV_SUBMODULE := git.environment-variables/application.flutter
 
+# 실행/빌드 스크립트 (환경별 env 복호화 + --dart-define-from-file)
+RUN := ./scripts/run.sh
+
 # 워크스페이스 초기화 (새 워크스페이스에서 처음 실행)
 setup:
 	@echo "======워크스페이스 초기화 중...======"
-	@# 서브모듈 초기화
 	git submodule update --init --recursive
-	@# FVM 버전 확인
 	@fvm flutter --version || (echo "❌ FVM이 설치되지 않았습니다. brew install fvm 실행 후 fvm use 3.32.8 실행하세요." && exit 1)
-	@# SOPS 확인
 	@which sops > /dev/null || (echo "❌ SOPS가 설치되지 않았습니다. brew install sops 실행하세요." && exit 1)
-	@# env 복호화 (dev 기본)
-	@if [ ! -f ".env.dev" ]; then \
-		echo "⚠️  .env.dev 없음 → 서브모듈에서 복호화..."; \
-		$(MAKE) prepare-env-dev; \
-	else \
-		echo "✅ .env.dev 파일 발견"; \
-	fi
 	$(FLUTTER) pub get
-	$(FLUTTER) pub run build_runner build --delete-conflicting-outputs
-	@echo "✅ 초기화 완료!"
+	@echo "✅ 초기화 완료! (env 파일은 make run-dev 등 실행 시 자동 복호화)"
 
 # ============================================
-# 🔐 SOPS 복호화 (서브모듈에서 env 파일 가져오기)
+# 🔐 배포 비밀값 (서명·App Store Connect)
 # ============================================
 
-# 개발 환경 env 복호화
-decrypt-env-dev:
-	@echo "======개발 환경 env 복호화 중...======"
-	@if [ ! -d "git.environment-variables" ]; then \
-		echo "❌ 서브모듈이 없습니다. git submodule update --init --recursive 실행하세요."; \
-		exit 1; \
-	fi
-	sops -d $(ENV_SUBMODULE)/dev.sops.env > .env.dev
-	@echo "✅ .env.dev 복호화 완료!"
+# release.sops.env → .env.release (없거나 sops 파일이 더 최신일 때)
+.env.release: $(ENV_SUBMODULE)/release.sops.env
+	@echo "======배포 비밀값 복호화 중...======"
+	sops -d --input-type dotenv --output-type dotenv $< > $@
+	@echo "✅ .env.release 복호화 완료!"
 
-# 프로덕션 환경 env 복호화
-decrypt-env-prod:
-	@echo "======프로덕션 환경 env 복호화 중...======"
-	@if [ ! -d "git.environment-variables" ]; then \
-		echo "❌ 서브모듈이 없습니다. git submodule update --init --recursive 실행하세요."; \
-		exit 1; \
-	fi
-	sops -d $(ENV_SUBMODULE)/prod.sops.env > .env.prod
-	@echo "✅ .env.prod 복호화 완료!"
+$(ENV_SUBMODULE)/release.sops.env:
+	git submodule update --init git.environment-variables
 
-# envied용 .env 파일 준비 (dev 환경)
-prepare-env-dev: decrypt-env-dev
-	cp .env.dev .env
-	@echo "✅ .env 파일 준비 완료 (dev)"
+decrypt-env-release: .env.release
 
-# envied용 .env 파일 준비 (prod 환경)
-prepare-env-prod: decrypt-env-prod
-	cp .env.prod .env
-	@echo "✅ .env 파일 준비 완료 (prod)"
-
-# Android 서명 설정 (.env.prod에서 secrets 폴더 생성)
-setup-signing:
+# Android 서명 설정 (.env.release → secrets/)
+setup-signing: .env.release
 	@echo "======Android 서명 설정 중...======"
-	@if [ ! -f ".env.prod" ]; then \
-		echo "❌ .env.prod 파일이 없습니다."; \
-		echo "   cp .env.example .env.prod 로 생성 후 값을 입력하세요."; \
-		exit 1; \
-	fi
-	@# .env.prod에서 값 읽기
 	@mkdir -p secrets
-	@KEYSTORE_PASSWORD=$$(grep '^KEYSTORE_PASSWORD=' .env.prod | cut -d '=' -f2); \
-	KEY_PASSWORD=$$(grep '^KEY_PASSWORD=' .env.prod | cut -d '=' -f2); \
-	KEY_ALIAS=$$(grep '^KEY_ALIAS=' .env.prod | cut -d '=' -f2); \
-	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.prod | sed 's/^KEYSTORE_BASE64=//'); \
+	@KEYSTORE_PASSWORD=$$(grep '^KEYSTORE_PASSWORD=' .env.release | cut -d '=' -f2); \
+	KEY_PASSWORD=$$(grep '^KEY_PASSWORD=' .env.release | cut -d '=' -f2); \
+	KEY_ALIAS=$$(grep '^KEY_ALIAS=' .env.release | cut -d '=' -f2); \
+	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.release | sed 's/^KEYSTORE_BASE64=//'); \
 	if [ -z "$$KEYSTORE_PASSWORD" ] || [ -z "$$KEY_PASSWORD" ] || [ -z "$$KEY_ALIAS" ] || [ -z "$$KEYSTORE_BASE64" ]; then \
-		echo "❌ .env.prod에 Android Signing 값이 누락되었습니다."; \
+		echo "❌ .env.release에 Android Signing 값이 누락되었습니다."; \
 		echo "   필요한 값: KEYSTORE_PASSWORD, KEY_PASSWORD, KEY_ALIAS, KEYSTORE_BASE64"; \
 		exit 1; \
 	fi; \
@@ -86,9 +53,7 @@ setup-signing:
 	echo "keyPassword=$$KEY_PASSWORD" >> secrets/key.properties; \
 	echo "keyAlias=$$KEY_ALIAS" >> secrets/key.properties; \
 	echo "storeFile=upload-keystore.jks" >> secrets/key.properties; \
-	echo "$$KEYSTORE_BASE64" | base64 --decode > secrets/upload-keystore.jks; \
-	echo "✅ secrets/key.properties 생성 완료"; \
-	echo "✅ secrets/upload-keystore.jks 생성 완료"
+	echo "$$KEYSTORE_BASE64" | base64 --decode > secrets/upload-keystore.jks
 	@echo "✅ Android 서명 설정 완료!"
 
 # 전체 클린 빌드 (문제 발생시 사용)
@@ -96,7 +61,6 @@ fresh:
 	@echo "======전체 클린 빌드 시작...======"
 	$(FLUTTER) clean
 	$(FLUTTER) pub get
-	$(FLUTTER) pub run build_runner build --delete-conflicting-outputs
 	@echo "✅ 클린 빌드 완료!"
 
 # iOS 캐시 완전 정리 (iOS 빌드 문제시 사용)
@@ -123,17 +87,6 @@ clean-android:
 	$(FLUTTER) clean
 	$(FLUTTER) pub get
 	@echo "✅ Android 캐시 정리 완료!"
-
-# 빌드 러너만 실행
-codegen:
-	@echo "======코드 생성 중...======"
-	$(FLUTTER) pub run build_runner build --delete-conflicting-outputs
-	@echo "✅ 코드 생성 완료!"
-
-# 빌드 러너 watch 모드
-codegen-watch:
-	@echo "======코드 생성 watch 모드 시작...======"
-	$(FLUTTER) pub run build_runner watch --delete-conflicting-outputs
 
 # ============================================
 # 🏷️ 버전 관리 (cider)
@@ -168,123 +121,47 @@ bump-major:
 	@echo "✅ 새 버전: $$(dart pub global run cider version)"
 
 # ============================================
-# 🔧 환경 빌드
-# ============================================
-
-# 개발 환경용 env 파일 빌드
-build-env-dev:
-	@echo "======개발 환경용 env 파일 빌드 중...======"
-	DART_DEFINES="FLAVOR=dev" $(FLUTTER) pub run build_runner build
-	@echo "✅ 개발 환경용 env 파일 빌드 완료!"
-
-# 프로덕션 환경용 env 파일 빌드
-build-env-prod:
-	@echo "======프로덕션 환경용 env 파일 빌드 중...======"
-	DART_DEFINES="FLAVOR=prod" $(FLUTTER) pub run build_runner build --delete-conflicting-outputs
-	@echo "✅ 프로덕션 환경용 env 파일 빌드 완료!"
-
-# ============================================
-# 🔧 내부 헬퍼 (환경 준비)
-# ============================================
-
-# 개발 환경 준비 (서브모듈에서 복호화 + codegen)
-_ensure-env-dev:
-	@if [ ! -f ".env.dev" ]; then \
-		echo "⚠️  .env.dev 없음 → 서브모듈에서 복호화..."; \
-		$(MAKE) prepare-env-dev; \
-	fi
-	@if [ ! -f "lib/utils/env/env.g.dart" ]; then \
-		echo "⚠️  env.g.dart 없음 → 코드 생성 실행..."; \
-		$(FLUTTER) pub get; \
-		$(FLUTTER) pub run build_runner build --delete-conflicting-outputs; \
-	fi
-
-# 프로덕션 환경 준비 (서브모듈에서 복호화 + secrets 생성 + codegen)
-_ensure-env-prod:
-	@if [ ! -f ".env.prod" ]; then \
-		echo "⚠️  .env.prod 없음 → 서브모듈에서 복호화..."; \
-		$(MAKE) prepare-env-prod; \
-	fi
-	@# secrets 폴더 자동 생성 (GitHub Actions처럼)
-	@echo "🔐 secrets 폴더 준비 중..."
-	@mkdir -p secrets
-	@KEYSTORE_PASSWORD=$$(grep '^KEYSTORE_PASSWORD=' .env.prod | cut -d '=' -f2); \
-	KEY_PASSWORD=$$(grep '^KEY_PASSWORD=' .env.prod | cut -d '=' -f2); \
-	KEY_ALIAS=$$(grep '^KEY_ALIAS=' .env.prod | cut -d '=' -f2); \
-	KEYSTORE_BASE64=$$(grep '^KEYSTORE_BASE64=' .env.prod | sed 's/^KEYSTORE_BASE64=//'); \
-	if [ -n "$$KEYSTORE_PASSWORD" ] && [ -n "$$KEY_PASSWORD" ] && [ -n "$$KEY_ALIAS" ] && [ -n "$$KEYSTORE_BASE64" ]; then \
-		echo "storePassword=$$KEYSTORE_PASSWORD" > secrets/key.properties; \
-		echo "keyPassword=$$KEY_PASSWORD" >> secrets/key.properties; \
-		echo "keyAlias=$$KEY_ALIAS" >> secrets/key.properties; \
-		echo "storeFile=upload-keystore.jks" >> secrets/key.properties; \
-		echo "$$KEYSTORE_BASE64" | base64 --decode > secrets/upload-keystore.jks 2>/dev/null || true; \
-		echo "✅ secrets 폴더 준비 완료"; \
-	else \
-		echo "⚠️  Android Signing 값 누락 - secrets 생성 스킵 (iOS 빌드는 가능)"; \
-	fi
-	@if [ ! -f "lib/utils/env/env.g.dart" ]; then \
-		echo "⚠️  env.g.dart 없음 → 코드 생성 실행..."; \
-		$(FLUTTER) pub get; \
-		$(FLUTTER) pub run build_runner build --delete-conflicting-outputs; \
-	fi
-
-# ============================================
-# 🚀 실행
+# 🚀 실행 (scripts/run.sh <cmd> <dev|prod>)
 # ============================================
 
 # 프로덕션 환경 실행
-run: _ensure-env-prod
-	@echo "======프로덕션 환경 실행중... (FLAVOR=prod)======"
-	$(FLUTTER) run --dart-define-from-file=config/flavors/prod.json
+run:
+	$(RUN) run prod
 
 # 개발 환경 실행
-run-dev: _ensure-env-dev
-	@echo "======개발 환경 실행중... (FLAVOR=dev)======"
-	$(FLUTTER) run --dart-define-from-file=config/flavors/dev.json
+run-dev:
+	$(RUN) run dev
 
 # 로컬 웹서버(localhost:3000) 연결 실행
-run-local: _ensure-env-dev
-	@echo "======로컬 웹서버 연결 실행중... (WebView → localhost:3000)======"
-	$(FLUTTER) run --dart-define-from-file=config/flavors/dev.json --dart-define=USE_LOCAL_WEBVIEW=true
+run-local:
+	$(RUN) run dev --dart-define=USE_LOCAL_WEBVIEW=true
 
 # 프로덕션 환경 실행 (별칭)
-run-prod: _ensure-env-prod
-	@echo "======프로덕션 환경 실행중... (FLAVOR=prod)======"
-	$(FLUTTER) run --dart-define-from-file=config/flavors/prod.json
+run-prod: run
 
 # ============================================
 # 🔨 빌드
 # ============================================
 
 # 개발 환경 빌드 (Android APK)
-build-dev-android: _ensure-env-dev
-	@echo "======개발 환경 빌드 중 (Android APK)...======"
-	$(FLUTTER) build apk --dart-define-from-file=config/flavors/dev.json
-	@echo "✅ 빌드 완료!"
+build-dev-android:
+	$(RUN) apk dev
 
 # 프로덕션 환경 빌드 (Android APK)
-build-prod-android: _ensure-env-prod
-	@echo "======프로덕션 환경 빌드 중 (Android APK)...======"
-	$(FLUTTER) build apk --release --dart-define-from-file=config/flavors/prod.json
-	@echo "✅ 빌드 완료!"
+build-prod-android: setup-signing
+	$(RUN) apk prod --release
 
 # 프로덕션 환경 빌드 (Android AAB - Play Store용)
-build-prod-android-aab: _ensure-env-prod
-	@echo "======프로덕션 환경 AAB 빌드 중 (Android)...======"
-	$(FLUTTER) build appbundle --release --dart-define-from-file=config/flavors/prod.json
-	@echo "✅ AAB 빌드 완료!"
+build-prod-android-aab: setup-signing
+	$(RUN) aab prod --release
 
 # 개발 환경 빌드 (iOS)
-build-dev-ios: _ensure-env-dev
-	@echo "======개발 환경 빌드 중 (iOS)...======"
-	$(FLUTTER) build ios --dart-define-from-file=config/flavors/dev.json
-	@echo "✅ 빌드 완료!"
+build-dev-ios:
+	$(RUN) ios dev
 
 # 프로덕션 환경 빌드 (iOS)
-build-prod-ios: _ensure-env-prod
-	@echo "======프로덕션 환경 빌드 중 (iOS)...======"
-	$(FLUTTER) build ios --release --dart-define-from-file=config/flavors/prod.json
-	@echo "✅ 빌드 완료!"
+build-prod-ios:
+	$(RUN) ios prod --release
 
 # ============================================
 # 🍎 iOS 배포 (Fastlane)
@@ -297,23 +174,19 @@ setup-ios-deploy:
 	cd ios && bundle install
 	@echo "✅ Fastlane 설치 완료!"
 
-# .env.prod에서 ASC 인증 환경변수 검증 헬퍼
-_load-asc-env:
-	@if [ ! -f ".env.prod" ]; then \
-		echo "❌ .env.prod 파일이 없습니다. make prepare-env-prod 를 먼저 실행하세요."; \
-		exit 1; \
-	fi
-	@ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
-	ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
-	ASC_KEY_BASE64=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//'); \
+# .env.release에서 ASC 인증 환경변수 검증 헬퍼
+_load-asc-env: .env.release
+	@ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.release | sed 's/^ASC_KEY_ID=//'); \
+	ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.release | sed 's/^ASC_ISSUER_ID=//'); \
+	ASC_KEY_BASE64=$$(grep '^ASC_KEY_BASE64=' .env.release | sed 's/^ASC_KEY_BASE64=//'); \
 	if [ -z "$$ASC_KEY_ID" ] || [ -z "$$ASC_ISSUER_ID" ] || [ -z "$$ASC_KEY_BASE64" ]; then \
-		echo "❌ .env.prod에 App Store Connect API 키 정보가 누락되었습니다."; \
+		echo "❌ .env.release에 App Store Connect API 키 정보가 누락되었습니다."; \
 		echo "   필요한 값: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64"; \
 		echo ""; \
 		echo "   [설정 방법]"; \
 		echo "   1. App Store Connect → 사용자 및 액세스 → 통합 → API 키 생성"; \
 		echo "   2. .p8 파일을 base64 인코딩: base64 -i AuthKey_XXXX.p8"; \
-		echo "   3. .env.prod에 추가:"; \
+		echo "   3. .env.release에 추가:"; \
 		echo "      ASC_KEY_ID=키ID"; \
 		echo "      ASC_ISSUER_ID=발급자ID"; \
 		echo "      ASC_KEY_BASE64=base64인코딩값"; \
@@ -321,21 +194,21 @@ _load-asc-env:
 	fi
 
 # IPA 빌드 (내부 헬퍼 - Fastfile에서 호출)
-_build-ios-ipa: _ensure-env-prod
+_build-ios-ipa:
 	@echo "======iOS IPA 빌드 중...======"
-	$(FLUTTER) build ipa --release --dart-define-from-file=config/flavors/prod.json --export-options-plist=ios/ExportOptions.plist 2>/dev/null || \
-	$(FLUTTER) build ipa --release --dart-define-from-file=config/flavors/prod.json
+	$(RUN) ipa prod --release --export-options-plist=ios/ExportOptions.plist 2>/dev/null || \
+	$(RUN) ipa prod --release
 	@echo "✅ IPA 빌드 완료!"
 
 # TestFlight 배포
-deploy-ios-testflight: _ensure-env-prod _load-asc-env
+deploy-ios-testflight: _load-asc-env
 	@echo "======iOS TestFlight 배포 중...======"
 	@# IPA 빌드
 	$(MAKE) _build-ios-ipa
 	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
-	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
-	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
-	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.release | sed 's/^ASC_KEY_ID=//'); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.release | sed 's/^ASC_ISSUER_ID=//'); \
+	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.release | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
 	IPA_FILE=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
 	if [ -z "$$IPA_FILE" ]; then echo "❌ IPA 파일을 찾을 수 없습니다. 빌드를 확인하세요."; exit 1; fi; \
 	export IPA_PATH=$$(pwd)/$$IPA_FILE; \
@@ -346,14 +219,14 @@ deploy-ios-testflight: _ensure-env-prod _load-asc-env
 deploy-ios: deploy-ios-testflight
 
 # App Store 제출
-deploy-ios-appstore: _ensure-env-prod _load-asc-env
+deploy-ios-appstore: _load-asc-env
 	@echo "======iOS App Store 제출 중...======"
 	@# IPA 빌드
 	$(MAKE) _build-ios-ipa
 	@# Fastlane 실행 (환경변수 전달: base64 디코딩하여 키 내용 전달)
-	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.prod | sed 's/^ASC_KEY_ID=//'); \
-	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.prod | sed 's/^ASC_ISSUER_ID=//'); \
-	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.prod | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
+	@export ASC_KEY_ID=$$(grep '^ASC_KEY_ID=' .env.release | sed 's/^ASC_KEY_ID=//'); \
+	export ASC_ISSUER_ID=$$(grep '^ASC_ISSUER_ID=' .env.release | sed 's/^ASC_ISSUER_ID=//'); \
+	export ASC_KEY_CONTENT=$$(grep '^ASC_KEY_BASE64=' .env.release | sed 's/^ASC_KEY_BASE64=//' | base64 --decode); \
 	IPA_FILE=$$(ls build/ios/ipa/*.ipa 2>/dev/null | head -1); \
 	if [ -z "$$IPA_FILE" ]; then echo "❌ IPA 파일을 찾을 수 없습니다. 빌드를 확인하세요."; exit 1; fi; \
 	export IPA_PATH=$$(pwd)/$$IPA_FILE; \
@@ -369,20 +242,16 @@ help:
 	@echo "🍾 Bottle Note Flutter 프로젝트 명령어"
 	@echo ""
 	@echo "📦 초기 설정 & 클린업:"
-	@echo "  make setup          - 워크스페이스 초기화 (서브모듈 + env 복호화 + 코드 생성)"
-	@echo "  make setup-signing  - Android 서명 설정 (.env.prod → secrets/)"
+	@echo "  make setup          - 워크스페이스 초기화 (서브모듈 + pub get)"
+	@echo "  make setup-signing  - Android 서명 설정 (.env.release → secrets/)"
 	@echo "  make fresh          - 전체 클린 빌드"
 	@echo "  make clean-ios      - iOS 캐시 완전 정리"
 	@echo "  make clean-ios-quick - iOS Pod만 재설치"
 	@echo "  make clean-android  - Android 캐시 정리"
-	@echo "  make codegen        - 빌드 러너 실행"
-	@echo "  make codegen-watch  - 빌드 러너 watch 모드"
 	@echo ""
 	@echo "🔐 환경 변수 (SOPS):"
-	@echo "  make decrypt-env-dev  - 개발 환경 env 복호화"
-	@echo "  make decrypt-env-prod - 프로덕션 환경 env 복호화"
-	@echo "  make prepare-env-dev  - 개발 env 복호화 + .env 복사"
-	@echo "  make prepare-env-prod - 프로덕션 env 복호화 + .env 복사"
+	@echo "  앱 env(.env.development / .env.production)는 run/build 시 scripts/run.sh가 자동 복호화"
+	@echo "  make decrypt-env-release - 배포 비밀값(서명·ASC) 복호화 → .env.release"
 	@echo ""
 	@echo "🏷️ 버전 관리:"
 	@echo "  make version        - 현재 버전 확인"
@@ -413,13 +282,12 @@ help:
 	@echo "  [사전 준비]"
 	@echo "  1. App Store Connect → 사용자 및 액세스 → 통합 → API 키 생성"
 	@echo "  2. .p8 파일을 base64 인코딩: base64 -i AuthKey_XXXX.p8"
-	@echo "  3. .env.prod에 ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64 추가"
+	@echo "  3. environment-variables의 application.flutter/release.sops.env에 ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64 추가"
 	@echo ""
 
-.PHONY: setup setup-signing fresh clean-ios clean-ios-quick clean-android codegen codegen-watch \
+.PHONY: setup setup-signing decrypt-env-release fresh clean-ios clean-ios-quick clean-android \
         version bump-build bump-patch bump-minor bump-major \
-        decrypt-env-dev decrypt-env-prod prepare-env-dev prepare-env-prod \
-        build-env-dev build-env-prod _ensure-env-dev _ensure-env-prod run run-dev run-local run-prod \
+        run run-dev run-local run-prod \
         build-dev-android build-prod-android build-prod-android-aab \
         build-dev-ios build-prod-ios \
         setup-ios-deploy _load-asc-env _build-ios-ipa \

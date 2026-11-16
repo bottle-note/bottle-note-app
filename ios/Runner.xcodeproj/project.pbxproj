@@ -504,7 +504,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = BottleNote;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
-				KAKAO_NATIVE_APP_KEY = 7333b12d472a5bf15323204df8d33863;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

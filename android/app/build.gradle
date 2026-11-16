@@ -22,21 +22,6 @@ def findSecretsDir() {
     return rootProject.file('.')
 }
 
-// flutter --dart-define(-from-file) 값 읽기 (base64, 쉼표 구분)
-def dartDefines = [:]
-if (project.hasProperty('dart-defines')) {
-    project.property('dart-defines').split(',').each { entry ->
-        def pair = new String(entry.decodeBase64(), 'UTF-8').split('=', 2)
-        if (pair.length == 2) {
-            dartDefines[pair[0]] = pair[1]
-        }
-    }
-}
-def kakaoNativeAppKey = dartDefines['KAKAO_NATIVE_APP_KEY'] ?: ''
-if (!kakaoNativeAppKey) {
-    println "⚠️  KAKAO_NATIVE_APP_KEY가 없습니다. --dart-define-from-file=config/flavors/<dev|prod>.json 으로 빌드하세요."
-}
-
 def secretsDir = findSecretsDir()
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = new File(secretsDir, 'key.properties')
@@ -70,9 +55,7 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // 카카오 리다이렉트 스킴(kakao{KEY}://oauth)을 빌드 flavor 키로 설정
-        manifestPlaceholders += [KAKAO_NATIVE_APP_KEY: kakaoNativeAppKey]
+
     }
 
     dependencies {
