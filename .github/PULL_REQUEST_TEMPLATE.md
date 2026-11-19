@@ -6,16 +6,6 @@
 
 -
 
-## PR 타입 (Type of Change)
-
-- [ ] ✨ feat: 새로운 기능
-- [ ] 🐛 fix: 버그 수정
-- [ ] ♻️ refactor: 리팩토링
-- [ ] 💄 style: UI/스타일 변경
-- [ ] 📝 docs: 문서 수정
-- [ ] 🔧 chore: 설정/빌드 변경
-- [ ] 🧪 test: 테스트 추가/수정
-
 ## 변경 사항 (Changes)
 
 -
