@@ -61,6 +61,7 @@ abstract class Env {
 
   /// 웹 환경 전환('dev' | 'prod')에 맞는 웹 URL과 카카오 키.
   /// 그 밖의 값은 빌드 기본 환경으로 되돌린다.
+  /// 환경마다 다른 값이 더 생기면 여기에 함께 넣어 웹 URL과 같이 바뀌게 한다.
   static ({String url, String kakaoNativeAppKey}) switchTarget(String env) =>
       switch (env) {
         'prod' => (
