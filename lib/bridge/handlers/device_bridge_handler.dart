@@ -5,6 +5,8 @@ import 'package:app/permissions/FirebaseConfig.dart';
 import 'package:app/utils/env/env.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart'
+    show KakaoSdk, TokenManagerProvider;
 import 'package:vibration/vibration.dart';
 
 /// 디바이스 토큰, 햅틱, 환경 전환 관련 브릿지 핸들러
@@ -102,16 +104,15 @@ mixin DeviceBridgeHandler on BridgeHandlerBase {
   Future<void> switchEnvironment(List<dynamic> arguments) async {
     logger.d('switchEnvironment called with arguments: $arguments');
     if (arguments.isNotEmpty && arguments[0] is String) {
-      final env = arguments[0] as String;
-      String url;
-      if (env == 'prod') {
-        url = 'https://bottle-note.com/';
-      } else if (env == 'dev') {
-        url = 'https://development.bottle-note.com/';
-      } else {
-        url = Env.webViewUrl;
+      final target = Env.switchTarget(arguments[0] as String);
+      // 카카오 토큰은 발급한 카카오 앱의 서버에서만 통과하므로, 웹과 같은 환경의 키로 바꾼다.
+      KakaoSdk.init(nativeAppKey: target.kakaoNativeAppKey);
+      try {
+        await TokenManagerProvider.instance.manager.clear();
+      } catch (e) {
+        logger.w('카카오 토큰 정리 실패: $e');
       }
-      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(target.url)));
     }
   }
 }

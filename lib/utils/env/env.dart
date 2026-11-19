@@ -6,8 +6,17 @@ abstract class Env {
   /// dev | prod
   static const String flavor = String.fromEnvironment('FLAVOR');
 
+  /// 빌드 환경(FLAVOR)의 카카오 네이티브 앱 키. 앱 시작 시 SDK 초기화에 쓴다.
   static const String kakaoNativeAppKey =
       String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
+
+  /// 앱 안에서 웹 환경을 전환할 때 쓰는 환경별 카카오 키.
+  /// 서버는 토큰을 발급한 카카오 앱(app_id)을 확인하므로, 웹 환경과 키가 맞아야 한다.
+  static const String kakaoNativeAppKeyDev =
+      String.fromEnvironment('KAKAO_NATIVE_APP_KEY_DEV');
+
+  static const String kakaoNativeAppKeyProd =
+      String.fromEnvironment('KAKAO_NATIVE_APP_KEY_PROD');
 
   static const String firebaseAndroidApiKey =
       String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
@@ -23,6 +32,8 @@ abstract class Env {
     final missing = {
       'FLAVOR': flavor,
       'KAKAO_NATIVE_APP_KEY': kakaoNativeAppKey,
+      'KAKAO_NATIVE_APP_KEY_DEV': kakaoNativeAppKeyDev,
+      'KAKAO_NATIVE_APP_KEY_PROD': kakaoNativeAppKeyProd,
       'FIREBASE_ANDROID_API_KEY': firebaseAndroidApiKey,
       'FIREBASE_IOS_API_KEY': firebaseIosApiKey,
     }.entries.where((e) => e.value.isEmpty).map((e) => e.key).toList();
@@ -47,4 +58,19 @@ abstract class Env {
       _ => 'https://development.bottle-note.com/',
     };
   }
+
+  /// 웹 환경 전환('dev' | 'prod')에 맞는 웹 URL과 카카오 키.
+  /// 그 밖의 값은 빌드 기본 환경으로 되돌린다.
+  static ({String url, String kakaoNativeAppKey}) switchTarget(String env) =>
+      switch (env) {
+        'prod' => (
+            url: 'https://bottle-note.com/',
+            kakaoNativeAppKey: kakaoNativeAppKeyProd,
+          ),
+        'dev' => (
+            url: 'https://development.bottle-note.com/',
+            kakaoNativeAppKey: kakaoNativeAppKeyDev,
+          ),
+        _ => (url: webViewUrl, kakaoNativeAppKey: kakaoNativeAppKey),
+      };
 }
