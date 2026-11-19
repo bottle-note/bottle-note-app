@@ -9,6 +9,7 @@ import 'package:app/bridge/web_view_navigation_handler.dart';
 import 'package:app/main.dart';
 import 'package:app/utils/env/env.dart';
 import 'package:app/ui/loading_widget.dart';
+import 'package:app/web_view/safe_area_script.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -33,33 +34,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     with WidgetsBindingObserver {
   static const String _systemUiThemeHandlerName = 'SystemUiTheme';
   static const Color _refreshIndicatorColor = Color(0xffe58257);
-  static const String _nativeSafeAreaOverrideScript = r'''
-    (function() {
-      function applyNativeSafeAreaOverrides() {
-        const root = document.documentElement;
-        if (!root) return;
-
-        if (!document.getElementById('bottle-note-native-safe-area')) {
-          const style = document.createElement('style');
-          style.id = 'bottle-note-native-safe-area';
-          style.textContent = `
-            html { --navbar-margin-bottom: 8px !important; }
-            .pt-safe-header { padding-top: 0 !important; }
-          `;
-          (document.head || root).appendChild(style);
-        }
-      }
-
-      applyNativeSafeAreaOverrides();
-      if (document.readyState === 'loading') {
-        document.addEventListener(
-          'DOMContentLoaded',
-          applyNativeSafeAreaOverrides,
-          { once: true },
-        );
-      }
-    })();
-  ''';
   static const String _systemUiThemeObserverScript = r'''
     (function() {
       function isDarkTheme() {
@@ -161,7 +135,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
   WebViewBridgeHandler? _webViewBridgeHandler;
   late final WebViewNavigationHandler _navigationHandler;
   late PullToRefreshController _pullToRefreshController;
-  late final UnmodifiableListView<UserScript> _initialUserScripts;
 
   bool _isAppLoading = false;
   late String _url = '';
@@ -169,6 +142,8 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
   bool _hasWebViewTheme = false;
   bool _isWebViewDark = false;
   Color? _webViewTopColor;
+  EdgeInsets? _sentSafeArea;
+  Future<void> _safeAreaUpdates = Future<void>.value();
 
   // Network status
   late ConnectivityService _connectivityService;
@@ -189,17 +164,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     _initializeConnectivity();
     _permissionWithNotification();
     _setupPullToRefresh();
-    _initialUserScripts = UnmodifiableListView([
-      if (Platform.isAndroid)
-        UserScript(
-          source: _nativeSafeAreaOverrideScript,
-          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-        ),
-      UserScript(
-        source: BridgeSetupScript.script,
-        injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-      ),
-    ]);
   }
 
   Future<void> _initializeConnectivity() async {
@@ -246,6 +210,7 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
       case AppLifecycleState.resumed:
         _handleAppResumed();
         _refreshSystemUiAfterConfigurationChange();
+        unawaited(_sendSafeAreaToWeb());
         break;
       default:
         break;
@@ -256,6 +221,46 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
   void didChangeMetrics() {
     super.didChangeMetrics();
     _refreshSystemUiAfterConfigurationChange();
+    unawaited(_sendSafeAreaToWeb());
+  }
+
+  EdgeInsets _currentSafeArea() => SafeAreaScript.insetsOf(
+      WidgetsBinding.instance.platformDispatcher.implicitView!);
+
+  UserScript _safeAreaUserScript(EdgeInsets insets) => UserScript(
+        groupName: SafeAreaScript.groupName,
+        source: SafeAreaScript.build(insets),
+        injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+      );
+
+  /// 폴더블 접기·회전·내비 방식 변경으로 시스템 바 높이가 바뀌면 웹에 다시 알린다.
+  /// 다음 페이지 로드에도 새 값이 쓰이도록 시작 스크립트도 바꿔 둔다.
+  Future<void> _sendSafeAreaToWeb({bool force = false}) {
+    if (!mounted || !_isWebViewCreated) return Future<void>.value();
+    final controller = _webviewController;
+
+    // 회전·키보드 전환 때 연속으로 오는 갱신을 순서대로 처리한다.
+    _safeAreaUpdates = _safeAreaUpdates.then((_) async {
+      if (!mounted ||
+          !_isWebViewCreated ||
+          !identical(controller, _webviewController)) {
+        return;
+      }
+      final insets = _currentSafeArea();
+      if (!force && insets == _sentSafeArea) return;
+      if (insets != _sentSafeArea) {
+        await controller.removeUserScriptsByGroupName(
+          groupName: SafeAreaScript.groupName,
+        );
+        await controller.addUserScript(userScript: _safeAreaUserScript(insets));
+      }
+      if (!mounted || !identical(controller, _webviewController)) return;
+      await controller.evaluateJavascript(source: SafeAreaScript.build(insets));
+      _sentSafeArea = insets;
+    }).catchError((Object error, StackTrace stackTrace) {
+      logger.w('Safe area 전달 실패', error: error, stackTrace: stackTrace);
+    });
+    return _safeAreaUpdates;
   }
 
   @override
@@ -270,11 +275,7 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _applySystemUiOverlayStyle(
-        isDark: _effectiveDarkMode,
-        topColor: _webViewTopColor ?? _fallbackSystemBarColor,
-        bottomColor: _fallbackSystemBarColor,
-      );
+      _applySystemUiOverlayStyle(isDark: _effectiveDarkMode);
     });
   }
 
@@ -318,6 +319,7 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     _connectivityService.dispose();
     _pullToRefreshController.dispose();
     if (_isWebViewCreated) {
+      _isWebViewCreated = false;
       _webviewController.dispose();
     }
     super.dispose();
@@ -350,16 +352,8 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     final isDark = _hasWebViewTheme
         ? _isWebViewDark
         : MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final fallbackSystemBarColor = isDark ? Colors.black : Colors.white;
-    final topSystemBarColor = _webViewTopColor ?? fallbackSystemBarColor;
-    final bottomSystemBarColor = fallbackSystemBarColor;
-    final systemPadding = MediaQuery.paddingOf(context);
-    final webViewPadding = Platform.isAndroid ? systemPadding : EdgeInsets.zero;
-    final systemUiOverlayStyle = _systemUiOverlayStyle(
-      isDark: isDark,
-      topColor: topSystemBarColor,
-      bottomColor: bottomSystemBarColor,
-    );
+    final backgroundColor = isDark ? Colors.black : Colors.white;
+    final systemUiOverlayStyle = _systemUiOverlayStyle(isDark: isDark);
 
     SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
 
@@ -373,38 +367,11 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
           }
         },
         child: Scaffold(
-          backgroundColor: bottomSystemBarColor,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              Padding(
-                padding: webViewPadding,
-                child: _isOffline && !_initialLoadCompleted
-                    ? OfflineScreen(onRetry: _retryConnection)
-                    : _buildBody(colors),
-              ),
-              if (Platform.isAndroid && systemPadding.top > 0)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: systemPadding.top,
-                  child: IgnorePointer(
-                    child: ColoredBox(color: topSystemBarColor),
-                  ),
-                ),
-              if (Platform.isAndroid && systemPadding.bottom > 0)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: systemPadding.bottom,
-                  child: IgnorePointer(
-                    child: ColoredBox(color: bottomSystemBarColor),
-                  ),
-                ),
-            ],
-          ),
+          backgroundColor: backgroundColor,
+          // 웹뷰는 시스템 바 뒤까지 그리고, 안전 영역 여백은 웹(env(safe-area-inset-*))이 맡는다.
+          body: _isOffline && !_initialLoadCompleted
+              ? SafeArea(child: OfflineScreen(onRetry: _retryConnection))
+              : _buildBody(colors),
         ),
       ),
     );
@@ -426,12 +393,20 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
             iframeAllowFullscreen: true,
             isInspectable: !kReleaseMode,
           ),
-          initialUserScripts: _initialUserScripts,
+          initialUserScripts: UnmodifiableListView([
+            _safeAreaUserScript(_currentSafeArea()),
+            UserScript(
+              source: BridgeSetupScript.script,
+              injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+            ),
+          ]),
           pullToRefreshController: _pullToRefreshController,
           onWebViewCreated: (controller) {
             _webviewController = controller;
             _isWebViewCreated = true;
+            _sentSafeArea = null;
             _setupSystemUiThemeHandler(controller);
+            unawaited(_sendSafeAreaToWeb());
             _webViewBridgeHandler = WebViewBridgeHandler(
               controller: controller,
               logger: logger,
@@ -456,11 +431,9 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
             _pullToRefreshController.endRefreshing();
             _initialLoadCompleted = true;
 
-            if (Platform.isAndroid) {
-              await controller.evaluateJavascript(
-                source: _nativeSafeAreaOverrideScript,
-              );
-            }
+            // document-start 실행을 보장하지 않는 WebView에서도 최종 값을 맞춘다.
+            await _sendSafeAreaToWeb(force: true);
+
             await controller.evaluateJavascript(
               source: _systemUiThemeObserverScript,
             );
@@ -584,36 +557,20 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
       : WidgetsBinding.instance.platformDispatcher.platformBrightness ==
           Brightness.dark;
 
-  Color get _fallbackSystemBarColor =>
-      _effectiveDarkMode ? Colors.black : Colors.white;
-
-  void _applySystemUiOverlayStyle({
-    required bool isDark,
-    required Color topColor,
-    required Color bottomColor,
-  }) {
-    SystemChrome.setSystemUIOverlayStyle(
-      _systemUiOverlayStyle(
-        isDark: isDark,
-        topColor: topColor,
-        bottomColor: bottomColor,
-      ),
-    );
+  void _applySystemUiOverlayStyle({required bool isDark}) {
+    SystemChrome.setSystemUIOverlayStyle(_systemUiOverlayStyle(isDark: isDark));
   }
 
-  SystemUiOverlayStyle _systemUiOverlayStyle({
-    required bool isDark,
-    required Color topColor,
-    required Color bottomColor,
-  }) {
+  /// 시스템 바는 투명하게 두고 웹이 그 밑까지 그린다. 아이콘 색만 웹 테마를 따른다.
+  SystemUiOverlayStyle _systemUiOverlayStyle({required bool isDark}) {
     final iconBrightness = isDark ? Brightness.light : Brightness.dark;
 
     return SystemUiOverlayStyle(
-      systemNavigationBarColor: bottomColor,
+      systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarIconBrightness: iconBrightness,
       systemNavigationBarContrastEnforced: false,
-      statusBarColor: topColor,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: iconBrightness,
       statusBarBrightness: iconBrightness == Brightness.light
           ? Brightness.dark
