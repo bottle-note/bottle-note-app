@@ -33,33 +33,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     with WidgetsBindingObserver {
   static const String _systemUiThemeHandlerName = 'SystemUiTheme';
   static const Color _refreshIndicatorColor = Color(0xffe58257);
-  static const String _nativeSafeAreaOverrideScript = r'''
-    (function() {
-      function applyNativeSafeAreaOverrides() {
-        const root = document.documentElement;
-        if (!root) return;
-
-        if (!document.getElementById('bottle-note-native-safe-area')) {
-          const style = document.createElement('style');
-          style.id = 'bottle-note-native-safe-area';
-          style.textContent = `
-            html { --navbar-margin-bottom: 8px !important; }
-            .pt-safe-header { padding-top: 0 !important; }
-          `;
-          (document.head || root).appendChild(style);
-        }
-      }
-
-      applyNativeSafeAreaOverrides();
-      if (document.readyState === 'loading') {
-        document.addEventListener(
-          'DOMContentLoaded',
-          applyNativeSafeAreaOverrides,
-          { once: true },
-        );
-      }
-    })();
-  ''';
   static const String _systemUiThemeObserverScript = r'''
     (function() {
       function isDarkTheme() {
@@ -190,11 +163,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     _permissionWithNotification();
     _setupPullToRefresh();
     _initialUserScripts = UnmodifiableListView([
-      if (Platform.isAndroid)
-        UserScript(
-          source: _nativeSafeAreaOverrideScript,
-          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-        ),
       UserScript(
         source: BridgeSetupScript.script,
         injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
@@ -353,8 +321,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
     final fallbackSystemBarColor = isDark ? Colors.black : Colors.white;
     final topSystemBarColor = _webViewTopColor ?? fallbackSystemBarColor;
     final bottomSystemBarColor = fallbackSystemBarColor;
-    final systemPadding = MediaQuery.paddingOf(context);
-    final webViewPadding = Platform.isAndroid ? systemPadding : EdgeInsets.zero;
     final systemUiOverlayStyle = _systemUiOverlayStyle(
       isDark: isDark,
       topColor: topSystemBarColor,
@@ -374,37 +340,10 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
         },
         child: Scaffold(
           backgroundColor: bottomSystemBarColor,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              Padding(
-                padding: webViewPadding,
-                child: _isOffline && !_initialLoadCompleted
-                    ? OfflineScreen(onRetry: _retryConnection)
-                    : _buildBody(colors),
-              ),
-              if (Platform.isAndroid && systemPadding.top > 0)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: systemPadding.top,
-                  child: IgnorePointer(
-                    child: ColoredBox(color: topSystemBarColor),
-                  ),
-                ),
-              if (Platform.isAndroid && systemPadding.bottom > 0)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: systemPadding.bottom,
-                  child: IgnorePointer(
-                    child: ColoredBox(color: bottomSystemBarColor),
-                  ),
-                ),
-            ],
-          ),
+          // 웹뷰는 시스템 바 뒤까지 그리고, 안전 영역 여백은 웹(env(safe-area-inset-*))이 맡는다.
+          body: _isOffline && !_initialLoadCompleted
+              ? SafeArea(child: OfflineScreen(onRetry: _retryConnection))
+              : _buildBody(colors),
         ),
       ),
     );
@@ -456,11 +395,6 @@ class BottleNoteWebViewState extends State<BottleNoteWebView>
             _pullToRefreshController.endRefreshing();
             _initialLoadCompleted = true;
 
-            if (Platform.isAndroid) {
-              await controller.evaluateJavascript(
-                source: _nativeSafeAreaOverrideScript,
-              );
-            }
             await controller.evaluateJavascript(
               source: _systemUiThemeObserverScript,
             );
