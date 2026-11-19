@@ -89,11 +89,12 @@ class BottleNoteColors extends ThemeExtension<BottleNoteColors> {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Env.ensureLoaded();
 
   await firebaseInitialized();
 
   try {
-    KakaoSdk.init(nativeAppKey: Env.kaKaoNativeAppKey);
+    KakaoSdk.init(nativeAppKey: Env.kakaoNativeAppKey);
   } catch (e) {
     logger.e('카카오 SDK 초기화 실패: $e');
   }

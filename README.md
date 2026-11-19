@@ -7,7 +7,7 @@
 ## 빠른 시작
 
 ```bash
-# 워크스페이스 초기화 ( 의존성 설치 + 코드 생성 )
+# 워크스페이스 초기화 ( 서브모듈 + 의존성 설치 )
 make setup
 
 # 앱 실행
@@ -22,14 +22,12 @@ make run-dev
 
 | 명령어                 | 설명                                      |
 | ---------------------- | ----------------------------------------- |
-| `make setup`           | 워크스페이스 초기화 (pub get + 코드 생성) |
-| `make setup-signing`   | Android 서명 설정 (.env.prod → secrets/)  |
+| `make setup`           | 워크스페이스 초기화 (서브모듈 + pub get)  |
+| `make setup-signing`   | Android 서명 설정 (.env.release → secrets/) |
 | `make fresh`           | 전체 클린 빌드                            |
 | `make clean-ios`       | iOS 캐시 완전 정리                        |
 | `make clean-ios-quick` | iOS Pod만 재설치                          |
 | `make clean-android`   | Android 캐시 정리                         |
-| `make codegen`         | build_runner 실행                         |
-| `make codegen-watch`   | build_runner watch 모드                   |
 
 ### 버전 관리
 
@@ -119,12 +117,6 @@ make build-prod-android-aab
 make clean-ios
 ```
 
-### build_runner 충돌
-
-```bash
-make codegen
-```
-
 ### 의존성 꼬임
 
 ```bash
@@ -156,29 +148,23 @@ export PATH="$PATH":"$HOME/.pub-cache/bin"
 
 ## 환경 설정
 
-### 자동 설정 (권장)
+환경 값은 `git.environment-variables` 서브모듈의 `application.flutter/`에서 가져온다 (웹과 같은 방식).
 
-`make setup`이 모든 환경 설정을 자동으로 처리합니다:
+| sops 파일 | 복호화 결과 | 쓰는 곳 |
+| --- | --- | --- |
+| `dev.sops.env` | `.env.development` | 개발 빌드 (`FLAVOR`, 카카오 TEST 앱 키, Firebase) |
+| `prod.sops.env` | `.env.production` | 운영 빌드 (`FLAVOR`, 카카오 운영 앱 키, Firebase) |
+| `release.sops.env` | `.env.release` | 서명·TestFlight 업로드 (앱에는 안 들어감) |
 
-```bash
-make setup
-```
+- `make run-dev`, `make build-*` 등은 `scripts/run.sh <cmd> <dev|prod>`를 호출한다. 스크립트가 env 파일이 없거나 sops 파일이 더 최신이면 복호화하고 `--dart-define-from-file`로 넘긴다.
+- 공용 `.env`나 코드 생성 단계는 없다. env 파일 없이 `flutter run`을 직접 실행하면 앱이 시작할 때 누락된 값을 알려 주며 멈춘다.
+- 직접 실행할 때: `./scripts/run.sh run dev`, 추가 인자는 뒤에 붙인다 (예: `./scripts/run.sh run dev -d emulator-5554`).
 
-> ⚠️ 환경변수 설정이 필요합니다. 처음 셋업 시 팀원에게 요청하세요.
-
-### 수동 환경 전환
-
-```bash
-# 개발 → 프로덕션 전환
-make prepare-env-prod
-
-# 프로덕션 → 개발 전환
-make prepare-env-dev
-```
+> ⚠️ sops 복호화 권한이 필요합니다. 처음 셋업 시 팀원에게 요청하세요.
 
 ### Android 서명 (로컬 프로덕션 빌드용)
 
-프로덕션 빌드 명령어 실행 시 자동으로 secrets 폴더가 생성됩니다:
+프로덕션 Android 빌드 명령어 실행 시 `.env.release`에서 secrets 폴더가 자동 생성됩니다:
 
 ```bash
 make build-prod-android  # 자동으로 secrets 생성

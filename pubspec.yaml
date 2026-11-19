@@ -22,7 +22,6 @@ dependencies:
   sign_in_with_apple: ^6.1.4
   url_launcher: ^6.3.1
   connectivity_plus: ^6.0.5
-  envied: ^1.1.1
   flutter_svg: ^2.0.10+1
   svg_path_parser: ^1.1.2
   flutter_native_splash: ^2.4.6
@@ -35,8 +34,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^4.0.0
   flutter_launcher_icons: '^0.13.1'
-  envied_generator: ^1.1.1
-  build_runner: ^2.4.15
 
 flutter:
   uses-material-design: true
