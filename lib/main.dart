@@ -4,6 +4,7 @@ import 'package:app/utils/env/env.dart';
 import 'package:app/utils/url_restore_manager.dart';
 import 'package:app/web_view/web_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk_template.dart';
 import 'package:logger/logger.dart';
 
@@ -90,6 +91,8 @@ class BottleNoteColors extends ThemeExtension<BottleNoteColors> {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Env.ensureLoaded();
+  // Android 버전과 상관없이 웹뷰를 시스템 바 밑까지 그린다. 여백은 웹이 맡는다.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   await firebaseInitialized();
 
